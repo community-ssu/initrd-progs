@@ -1,0 +1,2 @@
+#!/bin/sh
+gcc -Wall -Wextra -pedantic -pipe open-wlan-cal.c -o open-wlan-cal
