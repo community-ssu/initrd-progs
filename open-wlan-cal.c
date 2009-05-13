@@ -53,14 +53,6 @@ int get_from_dsme(const void *request, const int bytes_send,
 		return -1;
 	}
 
-	/* Didn't read what this stuff does,
-		but without this call things do not work */
-	if (fcntl(sock, F_SETFL, O_RDONLY|O_NONBLOCK) == -1) {
-		perror("Could not fnctl");
-		close(sock);
-		return -1;
-	}
-
 	/* send request */
 	ret = write(sock, request, bytes_send);
 	if (ret == -1) {
@@ -143,7 +135,8 @@ void load_from_dsme() {
 	int ret;
 	len = sizeof(mac_address_data);
 	printf("Pushing MAC address...");
-	ret = get_from_dsme(mac_request, sizeof(mac_request), mac_address_data, len);
+	fflush(stdout);
+	ret = get_from_dsme(mac_request, sizeof(mac_request) - 1, mac_address_data, len);
 	if (ret == len) {
 		unsigned int i;
 		for (i = 0; i < sizeof(mac_address); i++) {
