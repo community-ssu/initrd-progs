@@ -1,2 +1,2 @@
 #!/bin/sh
-gcc -std=C99 -Wall -Wextra -pedantic -pipe open-wlan-cal.c -o open-wlan-cal
+gcc -std=c99 -Wall -Wextra -pedantic -pipe open-wlan-cal.c -o open-wlan-cal
