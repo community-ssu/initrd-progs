@@ -139,7 +139,7 @@ void load_from_dsme() {
 	ret = get_from_dsme(mac_request, sizeof(mac_request), mac_address_data, len);
 	if (ret == len) {
 		unsigned int i;
-		for (i = 0; i < sizeof(mac_address); i++) {
+		for (i = 0; i < sizeof(mac_address); ++i) {
 			mac_address[i] = mac_address_data[32 + 4 * i];
 		}
 		if (set_mac(mac_address, sizeof(mac_address))) {
