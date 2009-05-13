@@ -28,9 +28,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-const char DSME_DEFAULT_SOCKET_PATH[] = "/tmp/dsmesock";
-
-ssize_t get_from_dsme(const void *request, const size_t bytes_send, 
+ssize_t get_from_dsme(const char *socket_path, const void *request, const size_t bytes_send, 
 		void *buff, const size_t bytes_read) {
 	int sock;
 	ssize_t ret;
@@ -44,8 +42,7 @@ ssize_t get_from_dsme(const void *request, const size_t bytes_send,
 
 	/* connect */
 	sockaddr.sun_family = AF_LOCAL;
-	/* TODO: allow changing socket path */
-	strcpy(sockaddr.sun_path, DSME_DEFAULT_SOCKET_PATH);
+	strcpy(sockaddr.sun_path, socket_path);
 	ret = strlen(sockaddr.sun_path) + sizeof(sockaddr.sun_family);
 	if (connect(sock, (struct sockaddr *)&sockaddr, ret) == -1) {
 		perror("Could not connect to socket");
@@ -60,7 +57,7 @@ ssize_t get_from_dsme(const void *request, const size_t bytes_send,
 		close(sock);
 		return -1;
 	} else if ((size_t)ret != bytes_send) {
-		fprintf(stderr, "Could write only %d bytes out of %d", ret, bytes_send);
+		fprintf(stderr, "Could write only %zd bytes out of %zd", ret, bytes_send);
 		perror(NULL);
 		close(sock);
 		return -1;
@@ -71,7 +68,7 @@ ssize_t get_from_dsme(const void *request, const size_t bytes_send,
 	if (ret == -1) {
 		perror("Could not read dsme response");
 	} else if ((size_t)ret != bytes_read) {
-		fprintf(stderr, "Could read only %d bytes out of %d", ret, bytes_read);
+		fprintf(stderr, "Could read only %zd bytes out of %zd", ret, bytes_read);
 		perror(NULL);
 	}
 
@@ -93,7 +90,7 @@ ssize_t write_to(const char filename[], const void *value, const size_t len) {
 		fprintf(stderr, "Could not write data to %s", filename);
 		perror(NULL);
 	} else if ((size_t)ret != len) {
-		fprintf(stderr, "Could write only %d bytes out of %d", ret, len);
+		fprintf(stderr, "Could write only %zd bytes out of %zd", ret, len);
 		perror(NULL);
 	}
 	close(f);
@@ -126,7 +123,7 @@ ssize_t set_rx_tuned_data(const void *value, const size_t len) {
 	return write_to("/sys/devices/platform/wlan-omap/cal_rssi", value, len);
 }
 
-void load_from_dsme() {
+void load_from_dsme(const char *socket_path) {
 	/* TODO: use struct for request (and, possibly, for response header) */
 	const char *mac_request
 		= " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
@@ -143,7 +140,9 @@ void load_from_dsme() {
 	len = sizeof(mac_address_data);
 	printf("Pushing MAC address...");
 	fflush(stdout);
-	ret = get_from_dsme(mac_request, 32, mac_address_data, len);
+
+	/* TODO: request size is hardcoded here */
+	ret = get_from_dsme(socket_path, mac_request, 32, mac_address_data, len);
 	if (ret == -1) {
 		return;
 	} else if ((size_t)ret == len) {
@@ -161,6 +160,6 @@ void load_from_dsme() {
 int main() {
 	/* Many cool things can be done here. Saving/loading data to/from files,
 	commandline args, direct /dev/mtd1 access, etc... */
-	load_from_dsme();
+	load_from_dsme("/tmp/dsmesock");
 	return 0;
 }
