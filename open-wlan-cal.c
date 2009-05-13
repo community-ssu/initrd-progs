@@ -128,7 +128,7 @@ int set_rx_tuned_data(const void *value, const int len) {
 
 void load_from_dsme() {
 	const char mac_request[]
-		= " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
+		= " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1";
 	char mac_address_data[60];
 	char mac_address[6];
 	int len;
@@ -136,7 +136,7 @@ void load_from_dsme() {
 	len = sizeof(mac_address_data);
 	printf("Pushing MAC address...");
 	fflush(stdout);
-	ret = get_from_dsme(mac_request, sizeof(mac_request) - 1, mac_address_data, len);
+	ret = get_from_dsme(mac_request, sizeof(mac_request), mac_address_data, len);
 	if (ret == len) {
 		unsigned int i;
 		for (i = 0; i < sizeof(mac_address); i++) {
