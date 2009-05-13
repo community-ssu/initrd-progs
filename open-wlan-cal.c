@@ -28,8 +28,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-ssize_t get_from_dsme(const char *socket_path, const void *request, const size_t bytes_send, 
-		void *buff, const size_t bytes_read) {
+ssize_t get_from_dsme(const char *socket_path, const void *request, 
+		const size_t bytes_send, void *buff, const size_t bytes_read) {
 	int sock;
 	ssize_t ret;
 	struct sockaddr_un sockaddr;
@@ -102,7 +102,7 @@ ssize_t set_mac(const void *value, const size_t len) {
 }
 
 ssize_t set_default_country(const void *value, const size_t len) {
-	return write_to("sys/devices/platform/wlan-omap/default_country", value, len);
+	return write_to("/sys/devices/platform/wlan-omap/default_country", value, len);
 }
 
 ssize_t set_tx_limits(const void *value, const size_t len) {
@@ -123,8 +123,19 @@ ssize_t set_rx_tuned_data(const void *value, const size_t len) {
 	return write_to("/sys/devices/platform/wlan-omap/cal_rssi", value, len);
 }
 
+void print_start(const char *msg) {
+	printf(msg);
+	fflush(stdout);
+}
+
+void print_end(const ssize_t result) {
+	if (result != 1) {
+		puts("[OK]");
+	}
+}
+
 void load_from_dsme(const char *socket_path) {
-	/* TODO: use struct for request (and, possibly, for response header) */
+	/* TODO: use struct for request (and, possibly, for response header)? */
 	const char *mac_request
 		= " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
 	const char *default_country_request
@@ -133,27 +144,26 @@ void load_from_dsme(const char *socket_path) {
 		= " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
 	const char *rx_tx_data_request
 		= " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
-	
+
 	char mac_address_data[60];
 	size_t len;
-	ssize_t ret;
-	len = sizeof(mac_address_data);
-	printf("Pushing MAC address...");
-	fflush(stdout);
 
+	/* country */
+	/* TODO: at least UK tablets have 0x10 instead of 0x30 */
+	print_start("Pushing default country...");
+	print_end(set_default_country("0\0\0\0", 4));
+
+	/* mac */
+	len = sizeof(mac_address_data);
+	print_start("Pushing MAC address...");
 	/* TODO: request size is hardcoded here */
-	ret = get_from_dsme(socket_path, mac_request, 32, mac_address_data, len);
-	if (ret == -1) {
-		return;
-	} else if ((size_t)ret == len) {
+	if (get_from_dsme(socket_path, mac_request, 32, mac_address_data, len) != -1) {
 		size_t i;
 		char mac_address[6];
 		for (i = 0; i < sizeof(mac_address); ++i) {
 			mac_address[i] = mac_address_data[32 + 4 * i];
 		}
-		if (set_mac(mac_address, sizeof(mac_address))) {
-			printf("OK\n");
-		}
+		print_end(set_mac(mac_address, sizeof(mac_address)));
 	}
 }
 
