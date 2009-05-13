@@ -117,7 +117,7 @@ ssize_t set_iq_values(const void *value, const size_t len) {
 	return write_to("/sys/devices/platform/wlan-omap/cal_iq", value, len);
 }
 
-ssize_t set_tx_tuned_data(const void *value, const size_t len) {
+ssize_t set_tx_curve_data(const void *value, const size_t len) {
 	return write_to("/sys/devices/platform/wlan-omap/cal_pa_curve_data",
 		value, len);
 }
@@ -128,15 +128,22 @@ ssize_t set_rx_tuned_data(const void *value, const size_t len) {
 
 void load_from_dsme() {
 	/* TODO: use struct for request (and, possibly, for response header) */
-	const char mac_request[]
-		= " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1";
+	const char *mac_request
+		= " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
+	const char *default_country_request
+		= " \0\0\0\0\22\0\0pp_data\0\0\0\0\0\0\0\0\0\0\0\0\0\10\211\0\0";
+	const char *iq_request
+		= " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
+	const char *rx_tx_data_request
+		= " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
+	
 	char mac_address_data[60];
 	size_t len;
 	ssize_t ret;
 	len = sizeof(mac_address_data);
 	printf("Pushing MAC address...");
 	fflush(stdout);
-	ret = get_from_dsme(mac_request, sizeof(mac_request), mac_address_data, len);
+	ret = get_from_dsme(mac_request, 32, mac_address_data, len);
 	if (ret == -1) {
 		return;
 	} else if ((size_t)ret == len) {
