@@ -180,7 +180,7 @@ void load_from_dsme(const char *socket_path) {
 			if (i == 0) {
 				iq[offset] = iq_data[read_offset];
 			} else {
-				// It's a kind of magic
+				/* It's a kind of magic */
 				iq[offset] = iq[offset - item_len] + 5;
 			}
 			iq[offset + 1] = '\t';
