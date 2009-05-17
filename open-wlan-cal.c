@@ -136,17 +136,18 @@ void print_end(const ssize_t result) {
 
 void load_from_dsme(const char *socket_path) {
 	/* TODO: use struct for request (and, possibly, for response header)? */
-	const char *mac_request
+	const char *mac_req
 		= " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
-	/* const char *default_country_request
+	/* const char *default_country_req
 		= " \0\0\0\0\22\0\0pp_data\0\0\0\0\0\0\0\0\0\0\0\0\0\10\211\0\0"; */
-	const char *iq_request
+	const char *iq_req
 		= " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
-	const char *rx_tx_data_request
+	const char *rx_tx_data_req
 		= " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
+	const size_t req_len = 32;
 
-	char iq_data[140];
-	char mac_address_data[60];
+	char iq_resp[140];
+	char mac_resp[60];
 	size_t len;
 
 	/* country */
@@ -157,20 +158,20 @@ void load_from_dsme(const char *socket_path) {
 	/* mac */
 	print_start("Pushing MAC address...");
 	/* TODO: request size is hardcoded here */
-	len = sizeof(mac_address_data);
-	if (get_from_dsme(socket_path, mac_request, 32, mac_address_data, len) != -1) {
+	len = sizeof(mac_resp);
+	if (get_from_dsme(socket_path, mac_req, req_len, mac_resp, len) != -1) {
 		size_t i;
 		char mac_address[6];
 		for (i = 0; i < sizeof(mac_address); ++i) {
-			mac_address[i] = mac_address_data[36 + 4 * i];
+			mac_address[i] = mac_resp[36 + 4 * i];
 		}
 		print_end(set_mac(mac_address, sizeof(mac_address)));
 	}
 
 	/* IQ values */
 	print_start("Pushing IQ tuned values...");
-	len = sizeof(iq_data);
-	if (get_from_dsme(socket_path, iq_request, 32, iq_data, len) != -1) {
+	len = sizeof(iq_resp);
+	if (get_from_dsme(socket_path, iq_req, req_len, iq_resp, len) != -1) {
 		char iq[130];
 		const size_t iq_len = sizeof(iq);
 		const size_t read_offset = 28;
@@ -178,7 +179,7 @@ void load_from_dsme(const char *socket_path) {
 		for (size_t i = 0; i < iq_len / item_len; ++i) {
 			const size_t offset = item_len * i;
 			if (i == 0) {
-				iq[offset] = iq_data[read_offset];
+				iq[offset] = iq_resp[read_offset];
 			} else {
 				/* It's a kind of magic */
 				iq[offset] = iq[offset - item_len] + 5;
@@ -188,7 +189,8 @@ void load_from_dsme(const char *socket_path) {
 			for (size_t j = 0; j < (item_len - 2); ++j) {
 				/* offset + 2 because 2 symbols already set */
 				/* (i + 1) because there's an empty item in input */
-				iq[offset + 2 + j] = iq_data[read_offset + (i + 1) * (item_len - 2) + j];
+				/* TODO: check bounds */
+				iq[offset + 2 + j] = iq_resp[read_offset + (i + 1) * (item_len - 2) + j];
 			}
 		}
 		print_end(set_iq_values(iq, iq_len));
