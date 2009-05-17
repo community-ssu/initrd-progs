@@ -98,25 +98,9 @@ ssize_t write_to(const char *filename, const void *value, const size_t len) {
 	return ret;
 }
 
-ssize_t set_mac(const void *value, const size_t len) {
-	return write_to("/sys/devices/platform/wlan-omap/cal_mac_address", value, len);
-}
-
-ssize_t set_default_country(const void *value, const size_t len) {
-	return write_to("/sys/devices/platform/wlan-omap/default_country", value, len);
-}
-
 ssize_t set_tx_limits(const void *value, const size_t len) {
 	return write_to("/sys/devices/platform/wlan-omap/cal_output_limits",
 		value, len);
-}
-
-ssize_t set_iq_values(const void *value, const size_t len) {
-	return write_to("/sys/devices/platform/wlan-omap/cal_iq", value, len);
-}
-
-ssize_t set_tx_curve_data(const void *value, const size_t len) {
-	return write_to("/sys/devices/platform/wlan-omap/cal_pa_curve_data", value, len);
 }
 
 ssize_t set_rx_tuned_data(const void *value, const size_t len) {
@@ -155,7 +139,7 @@ void load_from_dsme(const char *socket_path) {
 	/* country */
 	/* TODO: at least UK tablets have 0x10 instead of 0x30 */
 	print_start("Pushing default country...");
-	print_end(set_default_country("0\0\0\0", 4));
+	print_end(write_to("/sys/devices/platform/wlan-omap/default_country", "0\0\0\0", 4));
 
 	/* mac */
 	print_start("Pushing MAC address...");
@@ -166,7 +150,8 @@ void load_from_dsme(const char *socket_path) {
 		for (i = 0; i < sizeof(mac_address); ++i) {
 			mac_address[i] = mac_resp[36 + 4 * i];
 		}
-		print_end(set_mac(mac_address, sizeof(mac_address)));
+		print_end(write_to("/sys/devices/platform/wlan-omap/cal_mac_address",
+			mac_address, sizeof(mac_address)));
 	}
 
 	/* IQ values */
@@ -191,7 +176,7 @@ void load_from_dsme(const char *socket_path) {
 			iq[write_offset++] = '\t';
 			memcpy(iq + write_offset, iq_resp + read_offset, read_item_len);
 		}
-		print_end(set_iq_values(iq, sizeof(iq)));
+		print_end(write_to("/sys/devices/platform/wlan-omap/cal_iq", iq, sizeof(iq)));
 	}
 	
 	/* TX curve data */
@@ -211,7 +196,8 @@ void load_from_dsme(const char *socket_path) {
 			memcpy(dst_addr + prefix_len, src_addr, read_item_len);
 		}
 		/* For some mysterious reason, last two bytes are missing */
-		print_end(set_tx_curve_data(tx_curve, sizeof(tx_curve) - 2));
+		print_end(write_to("/sys/devices/platform/wlan-omap/cal_pa_curve_data",
+			tx_curve, sizeof(tx_curve) - 2));
 	}
 }
 
