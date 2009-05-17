@@ -41,7 +41,7 @@ ssize_t get_from_dsme(const char *socket_path, const void *request,
 	}
 
 	/* connect */
-	sockaddr.sun_family = AF_LOCAL;
+	sockaddr.sun_family = AF_FILE;
 	strcpy(sockaddr.sun_path, socket_path);
 	ret = strlen(sockaddr.sun_path) + sizeof(sockaddr.sun_family);
 	if (connect(sock, (struct sockaddr *)&sockaddr, ret) == -1) {
@@ -129,7 +129,7 @@ void print_start(const char *msg) {
 }
 
 void print_end(const ssize_t result) {
-	if (result != 1) {
+	if (result != -1) {
 		puts("[OK]");
 	}
 }
@@ -165,6 +165,33 @@ void load_from_dsme(const char *socket_path) {
 			mac_address[i] = mac_address_data[36 + 4 * i];
 		}
 		print_end(set_mac(mac_address, sizeof(mac_address)));
+	}
+
+	/* IQ values */
+	print_start("Pushing IQ tuned values...");
+	len = sizeof(iq_data);
+	if (get_from_dsme(socket_path, iq_request, 32, iq_data, len) != -1) {
+		char iq[130];
+		const size_t iq_len = sizeof(iq);
+		const size_t read_offset = 28;
+		const size_t item_len = 10;
+		for (size_t i = 0; i < iq_len / item_len; ++i) {
+			const size_t offset = item_len * i;
+			if (i == 0) {
+				iq[offset] = iq_data[read_offset];
+			} else {
+				// It's a kind of magic
+				iq[offset] = iq[offset - item_len] + 5;
+			}
+			iq[offset + 1] = '\t';
+			/* (item_len - 2) because 2 symbols already set */
+			for (size_t j = 0; j < (item_len - 2); ++j) {
+				/* offset + 2 because 2 symbols already set */
+				/* (i + 1) because there's an empty item in input */
+				iq[offset + 2 + j] = iq_data[read_offset + (i + 1) * (item_len - 2) + j];
+			}
+		}
+		print_end(set_iq_values(iq, iq_len));
 	}
 }
 
