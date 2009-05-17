@@ -17,6 +17,7 @@
 	along with opendsme.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -28,7 +29,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-ssize_t get_from_dsme(const char *socket_path, const void *request, 
+ssize_t get_from_dsme(const char *socket_path, const void *request,
 		const size_t bytes_send, void *buff, const size_t bytes_read) {
 	int sock;
 	ssize_t ret;
@@ -115,8 +116,7 @@ ssize_t set_iq_values(const void *value, const size_t len) {
 }
 
 ssize_t set_tx_curve_data(const void *value, const size_t len) {
-	return write_to("/sys/devices/platform/wlan-omap/cal_pa_curve_data",
-		value, len);
+	return write_to("/sys/devices/platform/wlan-omap/cal_pa_curve_data", value, len);
 }
 
 ssize_t set_rx_tuned_data(const void *value, const size_t len) {
@@ -135,19 +135,21 @@ void print_end(const ssize_t result) {
 }
 
 void load_from_dsme(const char *socket_path) {
-	/* TODO: use struct for request (and, possibly, for response header)? */
+	/* TODO: use struct for request (and, possibly, for response header)?
+		wlan-cal reads first 4 bytes and only then the rest part of response. */
 	const char *mac_req
 		= " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
 	/* const char *default_country_req
 		= " \0\0\0\0\22\0\0pp_data\0\0\0\0\0\0\0\0\0\0\0\0\0\10\211\0\0"; */
 	const char *iq_req
 		= " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
-	const char *rx_tx_data_req
+	const char *curve_req
 		= " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
 	const size_t req_len = 32;
 
 	char iq_resp[140];
 	char mac_resp[60];
+	char curve_resp[540];
 	size_t len;
 
 	/* country */
@@ -157,9 +159,8 @@ void load_from_dsme(const char *socket_path) {
 
 	/* mac */
 	print_start("Pushing MAC address...");
-	/* TODO: request size is hardcoded here */
 	len = sizeof(mac_resp);
-	if (get_from_dsme(socket_path, mac_req, req_len, mac_resp, len) != -1) {
+	if (get_from_dsme(socket_path, mac_req, req_len, mac_resp, len) == (ssize_t)len) {
 		size_t i;
 		char mac_address[6];
 		for (i = 0; i < sizeof(mac_address); ++i) {
@@ -171,35 +172,52 @@ void load_from_dsme(const char *socket_path) {
 	/* IQ values */
 	print_start("Pushing IQ tuned values...");
 	len = sizeof(iq_resp);
-	if (get_from_dsme(socket_path, iq_req, req_len, iq_resp, len) != -1) {
+	if (get_from_dsme(socket_path, iq_req, req_len, iq_resp, len) == (ssize_t)len) {
+		const size_t read_item_len = 8;
+		/* + 2 because two bytes are used for item prefix */
+		const size_t item_len = read_item_len + 2;
 		char iq[130];
-		const size_t iq_len = sizeof(iq);
-		const size_t read_offset = 28;
-		const size_t item_len = 10;
-		for (size_t i = 0; i < iq_len / item_len; ++i) {
-			const size_t offset = item_len * i;
+		for (size_t i = 0; i < sizeof(iq) / item_len; ++i) {
+			const size_t read_start = 28;
+			/* (i + 1) because there's an empty item in input */
+			const size_t read_offset = read_start + (i + 1) * read_item_len;
+			size_t write_offset = item_len * i;
 			if (i == 0) {
-				iq[offset] = iq_resp[read_offset];
+				iq[write_offset] = iq_resp[read_start];
 			} else {
-				/* It's a kind of magic */
-				iq[offset] = iq[offset - item_len] + 5;
+				iq[write_offset] = iq[write_offset - item_len] + 5;
 			}
-			iq[offset + 1] = '\t';
-			/* (item_len - 2) because 2 symbols already set */
-			for (size_t j = 0; j < (item_len - 2); ++j) {
-				/* offset + 2 because 2 symbols already set */
-				/* (i + 1) because there's an empty item in input */
-				/* TODO: check bounds */
-				iq[offset + 2 + j] = iq_resp[read_offset + (i + 1) * (item_len - 2) + j];
-			}
+			write_offset++;
+			iq[write_offset++] = '\t';
+			memcpy(iq + write_offset, iq_resp + read_offset, read_item_len);
 		}
-		print_end(set_iq_values(iq, iq_len));
+		print_end(set_iq_values(iq, sizeof(iq)));
+	}
+	
+	/* TX curve data */
+	print_start("Pushing TX tuned values...");
+	len = sizeof(curve_resp);
+	if (get_from_dsme(socket_path, curve_req, req_len, curve_resp, len) == (ssize_t)len) {
+		const size_t read_item_len = 38;
+		const size_t prefix_len = 4;
+		const size_t item_len = prefix_len + read_item_len;
+		const char *prefix = "\f\0 \2";
+		char tx_curve[552];
+		memcpy(tx_curve, "\3\0\6\0l\t", 6);
+		for (size_t i = 0; i < (sizeof(tx_curve) - 6) / item_len; ++i) {
+			const char *src_addr = curve_resp + 48 + read_item_len * i;
+			char *dst_addr = tx_curve + 6 + item_len * i;
+			memcpy(dst_addr, prefix, prefix_len);
+			memcpy(dst_addr + prefix_len, src_addr, read_item_len);
+		}
+		/* For some mysterious reason, last two bytes are missing */
+		print_end(set_tx_curve_data(tx_curve, sizeof(tx_curve) - 2));
 	}
 }
 
 int main() {
 	/* Many cool things can be done here. Saving/loading data to/from files,
-	commandline args, direct /dev/mtd1 access, etc... */
+		commandline args, direct /dev/mtd1 access, etc... */
 	load_from_dsme("/tmp/dsmesock");
 	return 0;
 }
