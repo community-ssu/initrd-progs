@@ -98,15 +98,6 @@ ssize_t write_to(const char *filename, const void *value, const size_t len) {
 	return ret;
 }
 
-ssize_t set_tx_limits(const void *value, const size_t len) {
-	return write_to("/sys/devices/platform/wlan-omap/cal_output_limits",
-		value, len);
-}
-
-ssize_t set_rx_tuned_data(const void *value, const size_t len) {
-	return write_to("/sys/devices/platform/wlan-omap/cal_rssi", value, len);
-}
-
 void print_start(const char *msg) {
 	printf(msg);
 	fflush(stdout);
@@ -199,6 +190,44 @@ void load_from_dsme(const char *socket_path) {
 		print_end(write_to("/sys/devices/platform/wlan-omap/cal_pa_curve_data",
 			tx_curve, sizeof(tx_curve) - 2));
 	}
+
+	/* TX limits */
+	print_start("Pushing TX limits...");
+	print_end(write_to("/sys/devices/platform/wlan-omap/cal_output_limits",
+		"\1\0\1\0l\t\3\n"
+		"\20\1\340\0\340\0\320\0\320\0q\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0v\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0{\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0\200\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0\205\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0\212\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0\217\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0\224\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0\231\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0\236\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0\243\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0\250\t\3\n"
+		"\20\1\360\0\360\0\320\0\320\0",
+		186));
+
+	/* RX tuned values */
+	print_start("Pushing RX tuned values...Using default values ");
+	print_end(write_to("/sys/devices/platform/wlan-omap/cal_rssi",
+		"\1\0l\t\n"
+		"\1r\376\32\0q\t\n"
+		"\1r\376\32\0v\t\n"
+		"\1r\376\32\0{\t\n"
+		"\1r\376\32\0\200\t\n"
+		"\1r\376\32\0\205\t\n"
+		"\1r\376\32\0\212\t\n"
+		"\1r\376\32\0\217\t\n"
+		"\1r\376\32\0\224\t\n"
+		"\1r\376\32\0\231\t\n"
+		"\1r\376\32\0\236\t\n"
+		"\1r\376\32\0\243\t\n"
+		"\1r\376\32\0\250\t\n"
+		"\1r\376\32\0",
+		106));
 }
 
 int main() {
