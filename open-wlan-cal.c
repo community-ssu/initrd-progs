@@ -17,6 +17,7 @@
 	along with opendsme.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -112,14 +113,11 @@ void print_end(const ssize_t result) {
 void load_from_dsme(const char *socket_path) {
 	/* TODO: use struct for request (and, possibly, for response header)?
 		wlan-cal reads first 4 bytes and only then the rest part of response. */
-	const char *mac_req
-		= " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
+	const char *mac_req = " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
 	/* const char *default_country_req
 		= " \0\0\0\0\22\0\0pp_data\0\0\0\0\0\0\0\0\0\0\0\0\0\10\211\0\0"; */
-	const char *iq_req
-		= " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
-	const char *curve_req
-		= " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
+	const char *iq_req = " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
+	const char *curve_req = " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
 	const size_t req_len = 32;
 
 	char iq_resp[140];
@@ -139,7 +137,9 @@ void load_from_dsme(const char *socket_path) {
 		size_t i;
 		char mac_address[6];
 		for (i = 0; i < sizeof(mac_address); ++i) {
-			mac_address[i] = mac_resp[36 + 4 * i];
+			const size_t idx = 36 + 4 * i;
+			assert(idx < sizeof(mac_resp));
+			mac_address[i] = mac_resp[idx];
 		}
 		print_end(write_to("/sys/devices/platform/wlan-omap/cal_mac_address",
 			mac_address, sizeof(mac_address)));
@@ -152,6 +152,7 @@ void load_from_dsme(const char *socket_path) {
 		const size_t read_item_len = 8;
 		/* + 2 because two bytes are used for item prefix */
 		const size_t item_len = read_item_len + 2;
+		/* 10 * 13 */
 		char iq[130];
 		for (size_t i = 0; i < sizeof(iq) / item_len; ++i) {
 			const size_t read_start = 28;
@@ -165,30 +166,32 @@ void load_from_dsme(const char *socket_path) {
 			}
 			write_offset++;
 			iq[write_offset++] = '\t';
-			memcpy(iq + write_offset, iq_resp + read_offset, read_item_len);
+			memcpy(&iq[write_offset], &iq_resp[read_offset], read_item_len);
 		}
 		print_end(write_to("/sys/devices/platform/wlan-omap/cal_iq", iq, sizeof(iq)));
 	}
-	
+
 	/* TX curve data */
 	print_start("Pushing TX tuned values...");
 	len = sizeof(curve_resp);
 	if (get_from_dsme(socket_path, curve_req, req_len, curve_resp, len) == (ssize_t)len) {
 		const size_t read_item_len = 38;
+		const size_t sep_len = 4;
+		const char *sep = "\f\0 \2";
 		const size_t prefix_len = 4;
-		const size_t item_len = prefix_len + read_item_len;
-		const char *prefix = "\f\0 \2";
-		char tx_curve[552];
-		memcpy(tx_curve, "\3\0\6\0l\t", 6);
-		for (size_t i = 0; i < (sizeof(tx_curve) - 6) / item_len; ++i) {
-			const char *src_addr = curve_resp + 48 + read_item_len * i;
-			char *dst_addr = tx_curve + 6 + item_len * i;
-			memcpy(dst_addr, prefix, prefix_len);
-			memcpy(dst_addr + prefix_len, src_addr, read_item_len);
+		const size_t item_len = sep_len + read_item_len;
+		/* 4 + (2 + 4 + 36) * 13 */
+		char tx_curve[550];
+		memcpy(tx_curve, "\3\0\6\0", prefix_len);
+		for (size_t i = 0; i < (sizeof(tx_curve) - prefix_len) / item_len; ++i) {
+			const char *src_addr = &curve_resp[46 + read_item_len * i];
+			char *dst_addr = &tx_curve[4 + item_len * i];
+			memcpy(dst_addr, src_addr, 2);
+			memcpy(&dst_addr[2], sep, sep_len);
+			memcpy(&dst_addr[2 + sep_len], &src_addr[2], read_item_len - 2);
 		}
-		/* For some mysterious reason, last two bytes are missing */
 		print_end(write_to("/sys/devices/platform/wlan-omap/cal_pa_curve_data",
-			tx_curve, sizeof(tx_curve) - 2));
+			tx_curve, sizeof(tx_curve)));
 	}
 
 	/* TX limits */
@@ -210,6 +213,7 @@ void load_from_dsme(const char *socket_path) {
 		"\236\t\3\n\20\1\360\0\360\0\320\0\320\0"
 		"\243\t\3\n\20\1\360\0\360\0\320\0\320\0"
 		"\250\t\3\n\20\1\360\0\360\0\320\0\320\0",
+		/* 4 + 14 * 13 */
 		186));
 
 	/* RX tuned values */
@@ -229,6 +233,7 @@ void load_from_dsme(const char *socket_path) {
 		"\236\t\n\1r\376\32\0"
 		"\243\t\n\1r\376\32\0"
 		"\250\t\n\1r\376\32\0",
+		/* 2 + 8 * 13 */
 		106));
 }
 
