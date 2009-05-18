@@ -17,7 +17,6 @@
 	along with opendsme.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -192,6 +191,8 @@ void load_from_dsme(const char *socket_path) {
 	}
 
 	/* TX limits */
+	/* TODO: UK tablets have a bit different value. I think there's a conditional switch
+		based on country code, because it doesn't have any additional input. */
 	print_start("Pushing TX limits...");
 	print_end(write_to("/sys/devices/platform/wlan-omap/cal_output_limits",
 		"\1\0\1\0l\t\3\n"
