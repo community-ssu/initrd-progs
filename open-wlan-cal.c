@@ -231,9 +231,16 @@ void load_from_dsme(const char *socket_path) {
 		106));
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 	/* Many cool things can be done here. Saving/loading data to/from files,
 		commandline args, direct /dev/mtd1 access, etc... */
-	load_from_dsme("/tmp/dsmesock");
+	const char *default_socket_path = "/tmp/dsmesock";
+	if (argc == 1) {
+		load_from_dsme(default_socket_path);
+	} else if (argc == 2) {
+		load_from_dsme(argv[1]);
+	} else {
+		printf("Usage: %s [DSME_SOCKET_PATH]\n", argv[0]);
+	}
 	return 0;
 }
