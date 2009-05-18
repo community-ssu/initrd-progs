@@ -42,6 +42,7 @@ ssize_t get_from_dsme(const char *socket_path, const void *request,
 
 	/* connect */
 	sockaddr.sun_family = AF_FILE;
+	/* TODO: check length (only 108 chars allowed) */
 	strcpy(sockaddr.sun_path, socket_path);
 	ret = strlen(sockaddr.sun_path) + sizeof(sockaddr.sun_family);
 	if (connect(sock, (struct sockaddr *)&sockaddr, ret) == -1) {
