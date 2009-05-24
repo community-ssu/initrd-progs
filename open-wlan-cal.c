@@ -116,6 +116,19 @@ void print_end(const ssize_t result) {
 	}
 }
 
+/* Country */
+
+void set_default_country() {
+	/* const char *default_country_req
+		= " \0\0\0\0\22\0\0pp_data\0\0\0\0\0\0\0\0\0\0\0\0\0\10\211\0\0"; */
+	/* TODO: at least UK tablets have 0x10 instead of 0x30 */
+	/* The problem is that i can't figure out which byte they are using */
+	print_start("Pushing default country...");
+	print_end(write_to("/sys/devices/platform/wlan-omap/default_country", "0\0\0\0", 4));
+}
+
+/* MAC */
+
 int get_mac_direct(const char *path, char *buf, const size_t len) {
 	/* TODO: implement this */
 	puts("[Not implemented yet]");
@@ -123,8 +136,8 @@ int get_mac_direct(const char *path, char *buf, const size_t len) {
 }
 
 int get_mac_from_dsme(const char *path, char *buf, const size_t len) {
-	const char *mac_req = " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
-	return get_from_dsme(path, mac_req, 32, buf, len, 36);
+	const char *req = " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
+	return get_from_dsme(path, req, 32, buf, len, 36);
 }
 
 void set_mac(const char *path, int (*get)(const char *, char *, const size_t len)) {
@@ -144,53 +157,58 @@ void set_mac(const char *path, int (*get)(const char *, char *, const size_t len
 	}
 }
 
-void load_from_dsme(const char *socket_path) {
-	/* TODO: use struct for request (and, possibly, for response header)?
-		wlan-cal reads first 4 bytes and only then the rest part of response. */
-	/* const char *default_country_req
-		= " \0\0\0\0\22\0\0pp_data\0\0\0\0\0\0\0\0\0\0\0\0\0\10\211\0\0"; */
-	const char *iq_req = " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
-	const char *curve_req = " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
-	const size_t req_len = 32;
+/* IQ values */
 
-	char iq_resp[140];
-	char curve_resp[540];
-	size_t len;
+int get_iq_values_direct(const char *path, char *buf, const size_t len) {
+	/* TODO: implement this */
+	puts("[Not implemented yet]");
+	return -1;
+}
 
-	/* country */
-	/* TODO: at least UK tablets have 0x10 instead of 0x30 */
-	/* The problem is that i can't figure out which byte they are using */
-	print_start("Pushing default country...");
-	print_end(write_to("/sys/devices/platform/wlan-omap/default_country", "0\0\0\0", 4));
+int get_iq_values_from_dsme(const char *path, char *buf, const size_t len) {
+	const char *req = " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
+	return get_from_dsme(path, req, 32, buf, len, 28);
+}
 
-	/* mac */
-	set_mac(socket_path, get_mac_from_dsme);
-
-	/* IQ values */
+void set_iq_values(const char *path, int (*get)(const char *, char *, const size_t len)) {
+	/* 14 (items + 1 empty) * 8 (read_item_len) */
+	char input[112];
 	print_start("Pushing IQ tuned values...");
-	len = sizeof(iq_resp);
-	if (get_from_dsme(socket_path, iq_req, req_len, iq_resp, len, 0) == (ssize_t)len) {
+	if (get(path, input, sizeof(input)) == sizeof(input)) {
 		const size_t read_item_len = 8;
 		/* + 2 because two bytes are used for item prefix */
 		const size_t item_len = read_item_len + 2;
-		/* 10 * 13 */
+		/* 10 (prefix + 8 bytes of data) * 13 (items) */
 		char iq[130];
 		for (size_t i = 0; i < sizeof(iq) / item_len; ++i) {
-			const size_t read_start = 28;
 			/* (i + 1) because there's an empty item in input */
-			const size_t read_offset = read_start + (i + 1) * read_item_len;
+			const size_t read_offset = (i + 1) * read_item_len;
 			size_t write_offset = item_len * i;
 			if (i == 0) {
-				iq[write_offset] = iq_resp[read_start];
+				iq[write_offset] = input[0];
 			} else {
 				iq[write_offset] = iq[write_offset - item_len] + 5;
 			}
 			write_offset++;
 			iq[write_offset++] = '\t';
-			memcpy(&iq[write_offset], &iq_resp[read_offset], read_item_len);
+			memcpy(&iq[write_offset], &input[read_offset], read_item_len);
 		}
 		print_end(write_to("/sys/devices/platform/wlan-omap/cal_iq", iq, sizeof(iq)));
 	}
+}
+
+void load_from_dsme(const char *socket_path) {
+	/* TODO: use struct for request (and, possibly, for response header)?
+		wlan-cal reads first 4 bytes and only then the rest part of response. */
+	const char *curve_req = " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
+	const size_t req_len = 32;
+
+	char curve_resp[540];
+	size_t len;
+
+	set_default_country();
+	set_mac(socket_path, get_mac_from_dsme);
+	set_iq_values(socket_path, get_iq_values_from_dsme);
 
 	/* TX curve data */
 	print_start("Pushing TX tuned values...");
