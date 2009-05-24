@@ -30,7 +30,10 @@
 #include <fcntl.h>
 
 ssize_t get_from_dsme(const char *socket_path, const void *request,
-		const size_t bytes_send, void *buff, const size_t bytes_read) {
+		const size_t bytes_send, void *buf, const size_t bytes_read,
+		const size_t bytes_skip) {
+	const size_t total_read = bytes_skip + bytes_read;
+	char data[total_read];
 	int sock;
 	ssize_t ret;
 	struct sockaddr_un sockaddr;
@@ -66,17 +69,20 @@ ssize_t get_from_dsme(const char *socket_path, const void *request,
 	}
 
 	/* read response */
-	ret = read(sock, buff, bytes_read);
+	ret = read(sock, data, total_read);
 	if (ret == -1) {
 		perror("Could not read dsme response");
-	} else if ((size_t)ret != bytes_read) {
-		fprintf(stderr, "Could read only %zd bytes out of %zd", ret, bytes_read);
+	} else if ((size_t)ret != total_read) {
+		fprintf(stderr, "Could read only %zd bytes out of %zd", ret, total_read);
 		perror(NULL);
+		close(sock);
+		return -1;
 	}
+	memcpy(buf, &data[bytes_skip], bytes_read);
 
 	/* cleanup */
 	close(sock);
-	return ret;
+	return ret - bytes_skip;
 }
 
 ssize_t write_to(const char *filename, const void *value, const size_t len) {
@@ -110,10 +116,37 @@ void print_end(const ssize_t result) {
 	}
 }
 
+int get_mac_direct(const char *path, char *buf, const size_t len) {
+	/* TODO: implement this */
+	puts("[Not implemented yet]");
+	return -1;
+}
+
+int get_mac_from_dsme(const char *path, char *buf, const size_t len) {
+	const char *mac_req = " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
+	return get_from_dsme(path, mac_req, 32, buf, len, 36);
+}
+
+void set_mac(const char *path, int (*get)(const char *, char *, const size_t len)) {
+	const size_t mac_len = 6;
+	const char *file = "/sys/devices/platform/wlan-omap/cal_mac_address";
+	char mac_address[mac_len];
+	char input[24];
+
+	print_start("Pushing MAC address...");
+	if (get(path, input, sizeof(input)) == sizeof(input)) {
+		size_t i;
+		for (i = 0; i < mac_len; ++i) {
+			const size_t idx = 4 * i;
+			mac_address[i] = input[idx];
+		}
+		print_end(write_to(file, mac_address, mac_len));
+	}
+}
+
 void load_from_dsme(const char *socket_path) {
 	/* TODO: use struct for request (and, possibly, for response header)?
 		wlan-cal reads first 4 bytes and only then the rest part of response. */
-	const char *mac_req = " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
 	/* const char *default_country_req
 		= " \0\0\0\0\22\0\0pp_data\0\0\0\0\0\0\0\0\0\0\0\0\0\10\211\0\0"; */
 	const char *iq_req = " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
@@ -121,7 +154,6 @@ void load_from_dsme(const char *socket_path) {
 	const size_t req_len = 32;
 
 	char iq_resp[140];
-	char mac_resp[60];
 	char curve_resp[540];
 	size_t len;
 
@@ -132,24 +164,12 @@ void load_from_dsme(const char *socket_path) {
 	print_end(write_to("/sys/devices/platform/wlan-omap/default_country", "0\0\0\0", 4));
 
 	/* mac */
-	print_start("Pushing MAC address...");
-	len = sizeof(mac_resp);
-	if (get_from_dsme(socket_path, mac_req, req_len, mac_resp, len) == (ssize_t)len) {
-		size_t i;
-		char mac_address[6];
-		for (i = 0; i < sizeof(mac_address); ++i) {
-			const size_t idx = 36 + 4 * i;
-			assert(idx < sizeof(mac_resp));
-			mac_address[i] = mac_resp[idx];
-		}
-		print_end(write_to("/sys/devices/platform/wlan-omap/cal_mac_address",
-			mac_address, sizeof(mac_address)));
-	}
+	set_mac(socket_path, get_mac_from_dsme);
 
 	/* IQ values */
 	print_start("Pushing IQ tuned values...");
 	len = sizeof(iq_resp);
-	if (get_from_dsme(socket_path, iq_req, req_len, iq_resp, len) == (ssize_t)len) {
+	if (get_from_dsme(socket_path, iq_req, req_len, iq_resp, len, 0) == (ssize_t)len) {
 		const size_t read_item_len = 8;
 		/* + 2 because two bytes are used for item prefix */
 		const size_t item_len = read_item_len + 2;
@@ -175,7 +195,7 @@ void load_from_dsme(const char *socket_path) {
 	/* TX curve data */
 	print_start("Pushing TX tuned values...");
 	len = sizeof(curve_resp);
-	if (get_from_dsme(socket_path, curve_req, req_len, curve_resp, len) == (ssize_t)len) {
+	if (get_from_dsme(socket_path, curve_req, req_len, curve_resp, len, 0) == (ssize_t)len) {
 		const size_t read_item_len = 38;
 		const size_t sep_len = 4;
 		const char *sep = "\f\0 \2";
@@ -238,16 +258,58 @@ void load_from_dsme(const char *socket_path) {
 		106));
 }
 
-int main(int argc, char *argv[]) {
-	/* Many cool things can be done here. Saving/loading data to/from files,
-		commandline args, direct /dev/mtd1 access, etc... */
-	const char *default_socket_path = "/tmp/dsmesock";
-	if (argc == 1) {
-		load_from_dsme(default_socket_path);
-	} else if (argc == 2) {
-		load_from_dsme(argv[1]);
-	} else {
-		printf("Usage: %s [DSME_SOCKET_PATH]\n", argv[0]);
+int usage(const char *progname) {
+	fprintf(stderr, "Usage: %s [-d] [PATH]\n", progname);
+	return EXIT_FAILURE;
+}
+
+int main(const int argc, char *argv[]) {
+	const char *default_dsme_path = "/tmp/dsmesock";
+	const char *default_direct_access_path = "/dev/mtd1";
+	const char *progname = argv[0];
+	const char *path;
+	int opt;
+	int direct_access = 0;
+	int verbose = 0;
+
+	while ((opt = getopt(argc, argv, "dv")) != -1) {
+		switch(opt) {
+			case 'd':
+				direct_access = 1;
+				break;
+			case 'v':
+				verbose = 1;
+				break;
+			default:
+				return usage(progname);
+		}
 	}
-	return 0;
+
+	assert(optind <= argc);
+	if (optind == argc) {
+		/* No path given */
+		if (direct_access) {
+			path = default_direct_access_path;
+		} else {
+		  path = default_dsme_path;
+		 }
+	} else if (optind + 1 == argc) {
+		/* Path was given */
+		path = argv[optind];
+	} else {
+		/* More than one non-opt arg */
+		return usage(progname);
+	}
+
+	if (verbose) {
+		const char *modestr = direct_access ? "direct" : "dsme";
+		printf("Using %s mode, reading from %s\n", modestr, path);
+	}
+
+	if (direct_access) {
+		puts("Not implemented yet");
+	} else {
+		load_from_dsme(path);
+	}
+	return EXIT_SUCCESS;
 }
