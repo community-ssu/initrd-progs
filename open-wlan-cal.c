@@ -197,33 +197,34 @@ void set_iq_values(const char *path, int (*get)(const char *, char *, const size
 	}
 }
 
-void load_from_dsme(const char *socket_path) {
-	/* TODO: use struct for request (and, possibly, for response header)?
-		wlan-cal reads first 4 bytes and only then the rest part of response. */
-	const char *curve_req = " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
-	const size_t req_len = 32;
+/* TX curve data */
 
-	char curve_resp[540];
-	size_t len;
+int get_tx_curve_direct(const char *path, char *buf, const size_t len) {
+	/* TODO: implement this */
+	puts("[Not implemented yet]");
+	return -1;
+}
 
-	set_default_country();
-	set_mac(socket_path, get_mac_from_dsme);
-	set_iq_values(socket_path, get_iq_values_from_dsme);
+int get_tx_curve_from_dsme(const char *path, char *buf, const size_t len) {
+	const char *req = " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
+	return get_from_dsme(path, req, 32, buf, len, 46);
+}
 
-	/* TX curve data */
+void set_tx_curve(const char *path, int (*get)(const char *, char *, const size_t len)) {
+	/* 38 * 13 (items) */
+	char input[494];
 	print_start("Pushing TX tuned values...");
-	len = sizeof(curve_resp);
-	if (get_from_dsme(socket_path, curve_req, req_len, curve_resp, len, 0) == (ssize_t)len) {
+	if (get(path, input, sizeof(input)) == sizeof(input)) {
 		const size_t read_item_len = 38;
 		const size_t sep_len = 4;
 		const char *sep = "\f\0 \2";
 		const size_t prefix_len = 4;
 		const size_t item_len = sep_len + read_item_len;
-		/* 4 + (2 + 4 + 36) * 13 */
+		/* 4 + (4 + 38) * 13 */
 		char tx_curve[550];
 		memcpy(tx_curve, "\3\0\6\0", prefix_len);
 		for (size_t i = 0; i < (sizeof(tx_curve) - prefix_len) / item_len; ++i) {
-			const char *src_addr = &curve_resp[46 + read_item_len * i];
+			const char *src_addr = &input[read_item_len * i];
 			char *dst_addr = &tx_curve[4 + item_len * i];
 			memcpy(dst_addr, src_addr, 2);
 			memcpy(&dst_addr[2], sep, sep_len);
@@ -232,8 +233,10 @@ void load_from_dsme(const char *socket_path) {
 		print_end(write_to("/sys/devices/platform/wlan-omap/cal_pa_curve_data",
 			tx_curve, sizeof(tx_curve)));
 	}
+}
 
-	/* TX limits */
+/* TX limits */
+void set_tx_limits() {
 	/* TODO: UK tablets have a bit different value. I think there's a conditional switch
 		based on country code, because it doesn't have any additional input. */
 	print_start("Pushing TX limits...");
@@ -254,8 +257,11 @@ void load_from_dsme(const char *socket_path) {
 		"\250\t\3\n\20\1\360\0\360\0\320\0\320\0",
 		/* 4 + 14 * 13 */
 		186));
+}
 
-	/* RX tuned values */
+/* RX tuned values */
+
+void set_rx_values() {
 	print_start("Pushing RX tuned values...Using default values ");
 	print_end(write_to("/sys/devices/platform/wlan-omap/cal_rssi",
 		"\1\0"
@@ -278,6 +284,8 @@ void load_from_dsme(const char *socket_path) {
 
 int usage(const char *progname) {
 	fprintf(stderr, "Usage: %s [-d] [PATH]\n", progname);
+	puts("\t-d\tif specified, data is read directly instead of via dsme server.");
+	puts("\tPATH\tspecifies where data will be read from.");
 	return EXIT_FAILURE;
 }
 
@@ -287,13 +295,13 @@ int main(const int argc, char *argv[]) {
 	const char *progname = argv[0];
 	const char *path;
 	int opt;
-	int direct_access = 0;
+	int direct = 0;
 	int verbose = 0;
 
-	while ((opt = getopt(argc, argv, "dv")) != -1) {
+	while ((opt = getopt(argc, argv, "dvh?")) != -1) {
 		switch(opt) {
 			case 'd':
-				direct_access = 1;
+				direct = 1;
 				break;
 			case 'v':
 				verbose = 1;
@@ -306,7 +314,7 @@ int main(const int argc, char *argv[]) {
 	assert(optind <= argc);
 	if (optind == argc) {
 		/* No path given */
-		if (direct_access) {
+		if (direct) {
 			path = default_direct_access_path;
 		} else {
 		  path = default_dsme_path;
@@ -320,14 +328,16 @@ int main(const int argc, char *argv[]) {
 	}
 
 	if (verbose) {
-		const char *modestr = direct_access ? "direct" : "dsme";
+		const char *modestr = direct ? "direct" : "dsme";
 		printf("Using %s mode, reading from %s\n", modestr, path);
 	}
 
-	if (direct_access) {
-		puts("Not implemented yet");
-	} else {
-		load_from_dsme(path);
-	}
+	set_default_country();
+	set_mac(path, direct ? get_mac_direct : get_mac_from_dsme);
+	set_iq_values(path, direct ? get_iq_values_direct : get_iq_values_from_dsme);
+	set_tx_curve(path, direct ? get_tx_curve_direct : get_tx_curve_from_dsme);
+	set_tx_limits();
+	set_rx_values();
+
 	return EXIT_SUCCESS;
 }
