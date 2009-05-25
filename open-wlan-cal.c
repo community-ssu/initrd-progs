@@ -28,10 +28,11 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
+#include <mtd/mtd-user.h>
 
 ssize_t get_from_dsme(const char *socket_path, const void *request,
-		const size_t bytes_send, void *buf, const size_t bytes_read,
-		const size_t bytes_skip) {
+		const size_t bytes_send, void *buf, const size_t bytes_read, const size_t bytes_skip) {
 	const size_t total_read = bytes_skip + bytes_read;
 	char data[total_read];
 	int sock;
@@ -129,18 +130,48 @@ void set_default_country() {
 
 /* MAC */
 
-int get_mac_direct(const char *path, char *buf, const size_t len) {
-	/* TODO: implement this */
+ssize_t get_mac_direct(const char *path, char *buf, const size_t len) {
+	int f;
+	ssize_t ret;
+	if ((f = open(path, O_RDONLY)) == -1) {
+		perror(NULL);
+		return -1;
+	}
+	/* Sadly, strace doesn't know mtd ioctl codes and misinterprets them as mtrr codes.
+		Here's mapping table (first column is real code, second - what strace thinks it is):
+		MEMGETINFO				MTRRIOC_SET_ENTRY
+		MEMERASE					MTRRIOC_DEL_ENTRY
+		MEMWRITEOOB				MTRRIOC_GET_ENTRY
+		MEMREADOOB				MTRRIOC_KILL_ENTRY
+		MEMLOCK						MTRRIOC_ADD_PAGE_ENTRY
+		MEMUNLOCK					MTRRIOC_SET_PAGE_ENTRY
+		MEMGETREGIONCOUNT MTRRIOC_DEL_PAGE_ENTRY
+		MEMGETREGIONINFO	MTRRIOC_GET_PAGE_ENTRY
+		MEMSETOOBSEL			MTRRIOC_KILL_PAGE_ENTRY
+		MEMGETOOBSEL			0x80c84d0a
+		MEMGETBADBLOCK		0x40084d0b
+		MEMSETBADBLOCK		0x40084d0c
+		OTPSELECT					0x80044d0d
+		OTPGETREGIONCOUNT 0x40044d0e
+		OTPGETREGIONINFO	0x400c4d0f
+		OTPLOCK						0x800c4d10
+		ECCGETLAYOUT			0x81484d11
+		ECCGETSTATS				0x80104d12
+		MTDFILEMODE				0x4d13
+	*/
+	ioctl(f, MTDFILEMODE);
 	puts("[Not implemented yet]");
-	return -1;
+	ret = -1;
+	close(f);
+	return ret;
 }
 
-int get_mac_from_dsme(const char *path, char *buf, const size_t len) {
+ssize_t get_mac_from_dsme(const char *path, char *buf, const size_t len) {
 	const char *req = " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
 	return get_from_dsme(path, req, 32, buf, len, 36);
 }
 
-void set_mac(const char *path, int (*get)(const char *, char *, const size_t len)) {
+void set_mac(const char *path, ssize_t (*get)(const char *, char *, const size_t len)) {
 	const size_t mac_len = 6;
 	const char *file = "/sys/devices/platform/wlan-omap/cal_mac_address";
 	char mac_address[mac_len];
@@ -159,18 +190,19 @@ void set_mac(const char *path, int (*get)(const char *, char *, const size_t len
 
 /* IQ values */
 
-int get_iq_values_direct(const char *path, char *buf, const size_t len) {
+ssize_t get_iq_values_direct(const char *path, char *buf, const size_t len) {
 	/* TODO: implement this */
 	puts("[Not implemented yet]");
 	return -1;
 }
 
-int get_iq_values_from_dsme(const char *path, char *buf, const size_t len) {
+ssize_t get_iq_values_from_dsme(const char *path, char *buf, const size_t len) {
 	const char *req = " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
 	return get_from_dsme(path, req, 32, buf, len, 28);
 }
 
-void set_iq_values(const char *path, int (*get)(const char *, char *, const size_t len)) {
+void set_iq_values(const char *path,
+		ssize_t (*get)(const char *, char *, const size_t len)) {
 	/* 14 (items + 1 empty) * 8 (read_item_len) */
 	char input[112];
 	print_start("Pushing IQ tuned values...");
@@ -199,18 +231,19 @@ void set_iq_values(const char *path, int (*get)(const char *, char *, const size
 
 /* TX curve data */
 
-int get_tx_curve_direct(const char *path, char *buf, const size_t len) {
+ssize_t get_tx_curve_direct(const char *path, char *buf, const size_t len) {
 	/* TODO: implement this */
 	puts("[Not implemented yet]");
 	return -1;
 }
 
-int get_tx_curve_from_dsme(const char *path, char *buf, const size_t len) {
+ssize_t get_tx_curve_from_dsme(const char *path, char *buf, const size_t len) {
 	const char *req = " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
 	return get_from_dsme(path, req, 32, buf, len, 46);
 }
 
-void set_tx_curve(const char *path, int (*get)(const char *, char *, const size_t len)) {
+void set_tx_curve(const char *path,
+		ssize_t (*get)(const char *, char *, const size_t len)) {
 	/* 38 * 13 (items) */
 	char input[494];
 	print_start("Pushing TX tuned values...");
