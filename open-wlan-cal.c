@@ -31,8 +31,11 @@
 #include <sys/ioctl.h>
 #include <mtd/mtd-user.h>
 
-ssize_t get_from_dsme(const char *socket_path, const void *request,
-		const size_t bytes_send, void *buf, const size_t bytes_read, const size_t bytes_skip) {
+const char *default_dsme_path = "/tmp/dsmesock";
+const char *default_direct_access_path = "/dev/mtd1";
+
+ssize_t get_from_dsme(const char *path, const void *request, const size_t bytes_send,
+		void *buf, const size_t bytes_read, const size_t bytes_skip) {
 	const size_t total_read = bytes_skip + bytes_read;
 	char data[total_read];
 	int sock;
@@ -47,9 +50,10 @@ ssize_t get_from_dsme(const char *socket_path, const void *request,
 
 	/* connect */
 	sockaddr.sun_family = AF_FILE;
-	/* TODO: check length (only 108 chars allowed) */
-	strcpy(sockaddr.sun_path, socket_path);
-	ret = strlen(sockaddr.sun_path) + sizeof(sockaddr.sun_family);
+	assert(strlen(path) <= sizeof(sockaddr.sun_path));
+	/* TODO: test if it works correctly with 108-char path. */
+	strcpy(sockaddr.sun_path, path);
+	ret = sizeof(sockaddr.sun_path) + sizeof(sockaddr.sun_family);
 	if (connect(sock, (struct sockaddr *)&sockaddr, ret) == -1) {
 		perror("Could not connect to socket");
 		close(sock);
@@ -62,44 +66,36 @@ ssize_t get_from_dsme(const char *socket_path, const void *request,
 		perror("Could not send dsme request");
 		close(sock);
 		return -1;
-	} else if ((size_t)ret != bytes_send) {
-		fprintf(stderr, "Could write only %zd bytes out of %zd", ret, bytes_send);
-		perror(NULL);
-		close(sock);
-		return -1;
 	}
+	assert((size_t)ret == bytes_send);
 
 	/* read response */
-	ret = read(sock, data, total_read);
+	ret = read(sock, &data[ret], total_read);
 	if (ret == -1) {
 		perror("Could not read dsme response");
-	} else if ((size_t)ret != total_read) {
-		fprintf(stderr, "Could read only %zd bytes out of %zd", ret, total_read);
-		perror(NULL);
 		close(sock);
 		return -1;
 	}
+	assert((size_t)ret == total_read);
 	memcpy(buf, &data[bytes_skip], bytes_read);
-
-	/* cleanup */
 	close(sock);
 	return ret - bytes_skip;
 }
 
-ssize_t write_to(const char *filename, const void *value, const size_t len) {
+ssize_t write_to(const char *path, const void *value, const size_t len) {
 	int f;
 	ssize_t ret;
-	if ((f = open(filename, O_WRONLY)) == -1) {
-		fprintf(stderr, "Could not open file %s", filename);
+	if ((f = open(path, O_WRONLY)) == -1) {
+		fprintf(stderr, "Could not open file %s: ", path);
 		perror(NULL);
 		return -1;
 	}
 	ret = write(f, value, len);
 	if (ret == -1) {
-		fprintf(stderr, "Could not write data to %s", filename);
+		fprintf(stderr, "Could not write data to %s: ", path);
 		perror(NULL);
 	} else if ((size_t)ret != len) {
-		fprintf(stderr, "Could write only %zd bytes out of %zd", ret, len);
+		fprintf(stderr, "Could write only %zd bytes out of %zd: ", ret, len);
 		perror(NULL);
 	}
 	close(f);
@@ -133,7 +129,9 @@ void set_default_country() {
 ssize_t get_mac_direct(const char *path, char *buf, const size_t len) {
 	int f;
 	ssize_t ret;
+	struct mtd_info_user info;
 	if ((f = open(path, O_RDONLY)) == -1) {
+		fprintf(stderr, "Could not open file %s: ", path);
 		perror(NULL);
 		return -1;
 	}
@@ -159,8 +157,15 @@ ssize_t get_mac_direct(const char *path, char *buf, const size_t len) {
 		ECCGETSTATS				0x80104d12
 		MTDFILEMODE				0x4d13
 	*/
-	ioctl(f, MTDFILEMODE);
-	puts("[Not implemented yet]");
+	/* Warning! If this is uncommented, segfault happens without -O optimisations,
+		and hang on futex(0x4015a020, FUTEX_WAIT, 2, NULL with -Os/-O2.
+		I don't understand where futex comes from at all yet.
+	*/
+	if (ioctl(f, MEMGETINFO, info) == -1) {
+		perror(NULL);
+		close(f);
+		return -1;
+	}
 	ret = -1;
 	close(f);
 	return ret;
@@ -316,15 +321,17 @@ void set_rx_values() {
 }
 
 int usage(const char *progname) {
-	fprintf(stderr, "Usage: %s [-d] [PATH]\n", progname);
-	puts("\t-d\tif specified, data is read directly instead of via dsme server.");
-	puts("\tPATH\tspecifies where data will be read from.");
+	fprintf(stderr, "Usage: %s [-d] [PATH]\n"
+		"  -d\tIf specified, data is read directly from mtd partition"
+		" instead of dsme server socket.\n"
+		"  PATH\tSpecifies where path to mtd partition if -d option is used"
+		" or to dsme server socket path otherwise.\n"
+		"\tIf no value is specified, %s is used in direct access mode and %s in dsme.\n",
+		progname, default_direct_access_path, default_dsme_path);
 	return EXIT_FAILURE;
 }
 
 int main(const int argc, char *argv[]) {
-	const char *default_dsme_path = "/tmp/dsmesock";
-	const char *default_direct_access_path = "/dev/mtd1";
 	const char *progname = argv[0];
 	const char *path;
 	int opt;
