@@ -3,7 +3,7 @@ http://git.slonopotamus.org/?p=opendsme
 
 Dependencies
 ------------
-None.
+CMake >= 2.6 is required to build from sources.
 
 Compiling
 ---------
