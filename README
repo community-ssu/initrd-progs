@@ -1,0 +1,26 @@
+opendsme - opensource dsme replacement
+http://git.slonopotamus.org/?p=opendsme
+
+Dependencies
+------------
+None.
+
+Compiling
+---------
+See the INSTALL document for build instructions.
+
+Documentation
+-------------
+See -h output of programs contained in opendsme package.
+
+License
+-------
+opendsme is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Contact
+-------
+If you have some ideas for how opendsme could be improved, please feel
+free to send a message to marat@slonopotamus.org

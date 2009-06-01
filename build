@@ -1,3 +1,0 @@
-#!/bin/sh
-cc -std=c99 -Wall -Wextra -pedantic ${CFLAGS} ${LDFLAGS} -D_POSIX_C_SOURCE=2\
- open-wlan-cal.c -o open-wlan-cal
