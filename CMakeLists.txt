@@ -8,7 +8,7 @@ include(CheckIncludeFile)
 
 # Executables
 add_definitions("-std=c99 -Wall -Wextra -pedantic")
-add_definitions(-D_POSIX_C_SOURCE=2)
+add_definitions(-D_POSIX_C_SOURCE=2 -D_FORTIFY_SOURCE=2)
 add_executable(open-wlan-cal open-wlan-cal.c)
 
 # Tests
