@@ -157,11 +157,7 @@ ssize_t get_mac_direct(const char *path, char *buf, const size_t len) {
 		ECCGETSTATS				0x80104d12
 		MTDFILEMODE				0x4d13
 	*/
-	/* Warning! If this is uncommented, segfault happens without -O optimisations,
-		and hang on futex(0x4015a020, FUTEX_WAIT, 2, NULL with -Os/-O2.
-		I don't understand where futex comes from at all yet.
-	*/
-	if (ioctl(f, MEMGETINFO, info) == -1) {
+	if (ioctl(f, MEMGETINFO, &info)) {
 		perror(NULL);
 		close(f);
 		return -1;
