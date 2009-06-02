@@ -157,7 +157,7 @@ ssize_t get_mac_direct(const char *path, char *buf, const size_t len) {
 		ECCGETSTATS				0x80104d12
 		MTDFILEMODE				0x4d13
 	*/
-	if (ioctl(f, MEMGETINFO, &info)) {
+	if (ioctl(f, MEMGETINFO, &info) == -1) {
 		perror(NULL);
 		close(f);
 		return -1;
