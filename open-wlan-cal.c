@@ -45,8 +45,8 @@ size_t skip_and_read(const int fd, void *buf, const size_t bytes_read,
 	return ret - bytes_skip;
 }
 
-size_t get_from_mtd(const char *path, void *buf, const size_t bytes_read,
-		const size_t bytes_skip) {
+size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
+		const size_t bytes_read, const size_t bytes_skip) {
 	const int mode = MTD_OTP_USER;
 	ssize_t ret;
 	int fd;
@@ -82,7 +82,7 @@ size_t get_from_mtd(const char *path, void *buf, const size_t bytes_read,
 		close(fd);
 		return -1;
 	}
-	if (lseek(fd, 0, SEEK_SET) == -1) {
+	if (lseek(fd, seek_to, SEEK_SET) == -1) {
 		perror(NULL);
 		close(fd);
 		return -1;
@@ -175,7 +175,7 @@ void set_default_country() {
 /* MAC */
 
 ssize_t get_mac_direct(const char *path, void *buf, const size_t len) {
-	return get_from_mtd(path, buf, len, 12);
+	return get_from_mtd(path, buf, 36, len, 4);
 }
 
 ssize_t get_mac_from_dsme(const char *path, void *buf, const size_t len) {
