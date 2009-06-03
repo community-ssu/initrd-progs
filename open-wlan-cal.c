@@ -205,9 +205,11 @@ void set_mac(const char *path, ssize_t (*get)(const char *, void *, const size_t
 /* IQ values */
 
 ssize_t get_iq_values_direct(const char *path, char *buf, const size_t len) {
+	ssize_t ret;
 	/* TODO: is it correct? */
 	memcpy(buf, "l\0\0\0", 4);
-	return get_from_mtd(path, &buf[4], 55332, len - 4, 0, -1);
+	ret = get_from_mtd(path, &buf[4], 55332, len - 4, 0, -1);
+	return ret == -1 ? ret : ret + 4;
 }
 
 ssize_t get_iq_values_from_dsme(const char *path, char *buf, const size_t len) {
@@ -246,9 +248,7 @@ void set_iq_values(const char *path,
 /* TX curve data */
 
 ssize_t get_tx_curve_direct(const char *path, void *buf, const size_t len) {
-	/* TODO: implement this */
-	puts("[Not implemented yet]");
-	return -1;
+	return get_from_mtd(path, buf, 57380, len, 14, -1);
 }
 
 ssize_t get_tx_curve_from_dsme(const char *path, void *buf, const size_t len) {
