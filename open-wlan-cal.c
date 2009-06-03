@@ -46,8 +46,7 @@ size_t skip_and_read(const int fd, void *buf, const size_t bytes_read,
 }
 
 size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
-		const size_t bytes_read, const size_t bytes_skip) {
-	const int mode = MTD_OTP_USER;
+		const size_t bytes_read, const size_t bytes_skip, const int select_mode) {
 	ssize_t ret;
 	int fd;
 	if ((fd = open(path, O_RDONLY)) == -1) {
@@ -77,10 +76,12 @@ size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
 		ECCGETSTATS				0x80104d12
 		MTDFILEMODE				0x4d13
 	*/
-	if (ioctl(fd, OTPSELECT, &mode) == -1) {
-		perror(NULL);
-		close(fd);
-		return -1;
+	if (select_mode != -1) {
+		if (ioctl(fd, OTPSELECT, &select_mode) == -1) {
+			perror(NULL);
+			close(fd);
+			return -1;
+		}
 	}
 	if (lseek(fd, seek_to, SEEK_SET) == -1) {
 		perror(NULL);
@@ -175,7 +176,7 @@ void set_default_country() {
 /* MAC */
 
 ssize_t get_mac_direct(const char *path, void *buf, const size_t len) {
-	return get_from_mtd(path, buf, 36, len, 4);
+	return get_from_mtd(path, buf, 36, len, 4, MTD_OTP_USER);
 }
 
 ssize_t get_mac_from_dsme(const char *path, void *buf, const size_t len) {
@@ -203,19 +204,19 @@ void set_mac(const char *path, ssize_t (*get)(const char *, void *, const size_t
 
 /* IQ values */
 
-ssize_t get_iq_values_direct(const char *path, void *buf, const size_t len) {
-	/* TODO: implement this */
-	puts("[Not implemented yet]");
-	return -1;
+ssize_t get_iq_values_direct(const char *path, char *buf, const size_t len) {
+	/* TODO: is it correct? */
+	memcpy(buf, "l\0\0\0", 4);
+	return get_from_mtd(path, &buf[4], 55332, len - 4, 0, -1);
 }
 
-ssize_t get_iq_values_from_dsme(const char *path, void *buf, const size_t len) {
+ssize_t get_iq_values_from_dsme(const char *path, char *buf, const size_t len) {
 	const char *req = " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
 	return get_from_dsme(path, req, 32, buf, len, 28);
 }
 
 void set_iq_values(const char *path,
-		ssize_t (*get)(const char *, void *, const size_t len)) {
+		ssize_t (*get)(const char *, char *, const size_t len)) {
 	/* 14 (items + 1 empty) * 8 (read_item_len) */
 	char input[112];
 	print_start("Pushing IQ tuned values...");
