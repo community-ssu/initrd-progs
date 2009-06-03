@@ -365,8 +365,8 @@ int main(const int argc, char *argv[]) {
 		if (direct) {
 			path = default_direct_access_path;
 		} else {
-		  path = default_dsme_path;
-		 }
+			path = default_dsme_path;
+		}
 	} else if (optind + 1 == argc) {
 		/* Path was given */
 		path = argv[optind];
