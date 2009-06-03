@@ -50,7 +50,7 @@ size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
 	ssize_t ret;
 	int fd;
 	if ((fd = open(path, O_RDONLY)) == -1) {
-		fprintf(stderr, "Could not open file %s: ", path);
+		fprintf(stderr, "Could not open %s: ", path);
 		perror(NULL);
 		return -1;
 	}
@@ -135,7 +135,7 @@ ssize_t write_to(const char *path, const void *value, const size_t len) {
 	int f;
 	ssize_t ret;
 	if ((f = open(path, O_WRONLY)) == -1) {
-		fprintf(stderr, "Could not open file %s: ", path);
+		fprintf(stderr, "Could not open %s: ", path);
 		perror(NULL);
 		return -1;
 	}
