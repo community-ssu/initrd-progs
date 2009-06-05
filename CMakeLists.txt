@@ -1,7 +1,7 @@
 # Generic info
 cmake_minimum_required(VERSION 2.6)
 project(opendsme C)
-set(opendsme_VERSION 0.1)
+set(opendsme_VERSION 0.1-git)
 
 # Checks
 set(CMAKE_REQUIRED_FLAGS "-std=c99 -Wall -Wextra -pedantic")
