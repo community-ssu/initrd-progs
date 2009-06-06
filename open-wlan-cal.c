@@ -343,11 +343,14 @@ int usage(const char *progname) {
 int main(const int argc, char *argv[]) {
 	const char *progname = argv[0];
 	const char *path;
-	int opt;
 	int direct = 0;
 	int verbose = 0;
 
-	while ((opt = getopt(argc, argv, "dvh?")) != -1) {
+	while (1) {
+		int opt;
+		if ((opt = getopt(argc, argv, "dvh?")) == -1) {
+			break;
+		}
 		switch(opt) {
 			case 'd':
 				direct = 1;
