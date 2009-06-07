@@ -1,0 +1,27 @@
+fb_text2screen - opensource tool for simple text drawing on framebuffer devices.
+http://git.slonopotamus.org/?p=fb_text2screen
+
+Dependencies
+------------
+CMake >= 2.6 is required to build from sources.
+popt is required at build and runtime for command-line args processing.
+
+Compiling
+---------
+See the INSTALL document for build instructions.
+
+Documentation
+-------------
+See --help output of fb_text2screen program.
+
+License
+-------
+fb_text2screen is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Contact
+-------
+If you have some ideas for how fb_text2screen could be improved, please feel
+free to send a message to marat@slonopotamus.org
