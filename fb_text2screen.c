@@ -28,6 +28,8 @@
 #include <sys/mman.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
+#include <string.h>
+/* TODO: what is the proper way to handle this? */
 #include </usr/src/linux/include/asm-arm/arch-omap/omapfb.h>
 
 typedef struct {
@@ -48,7 +50,105 @@ static inline uint16_t rgb_888_to_565(const uint32_t rgb888) {
 		(((rgb888 & 0x0000ff) >> 3) & 0x001f);
 }
 
-int fb_write_text(fb_t *fb, const char *text) {
+static const uint64_t alphabet[256] = {
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+};
+
+/*
+ * Writes letters on screen. Each letter is represented as 8x8 bit matrix.
+ * Known limitations:
+ *  - Doesn't handle \n for force line breaks.
+ *    Could be done, but complicates limits calculation and wrapping.
+ *  - Doesn't put text at left screen border after line breaks
+ *    caused by overly long lines. Original text2screen does this.
+ *    However, it is arguable, which behavior is better.
+ *  - Expects letters to fit square area. Could be fixed to allow rectangular.
+ *  - Doesn't accept coordinates and alignment at the same time.
+ */
+int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t color,
+		int x, int y) {
+	if (x < 0 || x > fb->width || y < 0 || y > fb->width) {
+		fputs("Out of screen bounds\n", stderr);
+		return EXIT_FAILURE;
+	} else if (scale < 1) {
+		fputs("Invalid scale\n", stderr);
+		return EXIT_FAILURE;
+	}
+	const int letter_size = scale * 8;
+	const int max_chars_per_row = (fb->width - x) / letter_size;
+	const int max_rows = (fb->height - y) / letter_size;
+	const int len = strlen(text);
+	if (len == 0) {
+		fputs("No text specified\n", stderr);
+		return EXIT_FAILURE;
+	} else if (len > max_chars_per_row * max_rows) {
+		fputs("Text is too long\n", stderr);
+		return EXIT_FAILURE;
+	}
+	const uint16_t color16 = rgb_888_to_565(color);
+
+	/* Pointer to left top row corner */
+	uint8_t *row_out = (uint8_t *)fb->mem + fb->depth * (fb->width * y + x);
+	/* Pointer to left top letter corner */
+	uint8_t *letter_out = row_out;
+	/* Iterate over chars in text */
+	for (int c = 0; c < len; ++c) {
+		const uint64_t letter = alphabet[(int)text[c]];
+		/* Pointer to left top pixel corner */
+		uint8_t *pxly_out = letter_out;
+		/* Vertical letter axis */
+		for (int ly = 0; ly < 8; ++ly) {
+			uint8_t *pxlx_out = pxly_out;
+			/* Horizontal letter axis */
+			for (int lx = 0; lx < 8; ++lx) {
+				if (letter >> (ly * 8 + lx) & 1) {
+					uint8_t *zy_out = pxlx_out;
+					/* Vertical zoom axis */
+					for (int zy = 0; zy < scale; ++zy) {
+						uint8_t *zx_out = zy_out;
+						/* Horizontal zoom axis */
+						for (int zx = 0; zx < scale; ++zx) {
+							if (fb->depth == 2) {
+								*(uint16_t *)zx_out = color16;
+							} else if (fb->depth == 4) {
+								*(uint32_t *)zx_out = color;
+							} else {
+								assert(0);
+							}
+							zx_out += fb->depth;
+						}
+						zy_out += fb->depth * fb->width;
+					}
+				}
+				/* Advance to next pixel */
+				pxlx_out += fb->depth * scale;
+			}
+			/* Advance to next pixel row */
+			pxly_out += fb->depth * fb->width * scale;
+		}
+		/* Advance to next letter */
+		if ((c + 1) % max_chars_per_row == 0) {
+			row_out += fb->depth * fb->width * letter_size;
+			letter_out = row_out;
+		} else {
+			letter_out += fb->depth * letter_size;
+		}
+	}
 	return EXIT_SUCCESS;
 }
 
@@ -83,7 +183,7 @@ int fb_init(fb_t *fb) {
 			return EXIT_FAILURE;
 		}
 	}
-	fb->mem = mmap(0, fb->size, PROT_READ | PROT_WRITE, MAP_SHARED, fb->fd, 0);
+	fb->mem = mmap(0, fb->size, PROT_WRITE, MAP_SHARED, fb->fd, 0);
 	if (fb->mem == MAP_FAILED) {
 		perror("Could not mmap device");
 		close(fb->fd);
@@ -139,26 +239,25 @@ int fb_clear(fb_t *fb, const uint32_t color, int x, int y, int width, int height
 		height = fb->height - y;
 	}
 	normalize(&x, &y, &width, &height);
-	printf("%dx%d@%dx%d on %dx%d\n", width, height, x, y, fb->width, fb->height);
 	if (x < 0 || x + width > fb->width || y < 0 || y + height > fb->height) {
 		fputs("Boundaries out of range", stderr);
 		return EXIT_FAILURE;
 	}
 	uint16_t color16 = rgb_888_to_565(color);
-	uint8_t *out = fb->mem;
-	out += fb->depth * (fb->width * y + x);
+	uint8_t *out = (uint8_t *)fb->mem + fb->depth * (fb->width * y + x);
 	for (int j = 0; j < height; j++) {
+		uint8_t *row_out = out;
 		for (int i = 0; i < width; i++) {
 			if (fb->depth == 2) {
-				*(uint16_t *)out = color16;
+				*(uint16_t *)row_out = color16;
 			} else if (fb->depth == 4) {
-				*(uint32_t *)out = color;
+				*(uint32_t *)row_out = color;
 			} else {
 				assert(0);
 			}
-			out += fb->depth;
+			row_out += fb->depth;
 		}
-		out += fb->depth * (fb->width - width);
+		out += fb->depth * fb->width;
 	}
 	return EXIT_SUCCESS;
 }
@@ -172,23 +271,23 @@ int main(const int argc, const char **argv) {
 		POPT_TABLEEND
 	};
 
-	/* TODO: default values? */
 	char *text_color = "0x00FF00";
 	char *bg_color = "0xFFFFFF";
-	int size;
+	int scale = 1;
 	int x = 0;
 	int y = 0;
 	int width = 0;
 	int height = 0;
-	char *halign;
-	char *valign;
+	char *halign = NULL;
+	char *valign = NULL;
+
 	fb_t fb = {"/dev/fb0", 0, 0, 0, 0, NULL, 0};
 	const struct poptOption options[] = {
 		{"set-text-color", 'T', POPT_ARG_STRING, &text_color, 0,
 			"Use specified color for text. Default is green.", "<color>"},
 		{"set-bg-color", 'B', POPT_ARG_STRING, &bg_color, 0,
 			"Use specified color for background. Default is 0xFFFFFF (white).", "<color>"},
-		{"set-scale", 's', POPT_ARG_INT, &size, 0,
+		{"set-scale", 's', POPT_ARG_INT, &scale, 0,
 			"Set text size", "{1-10}"},
 		{"set-x", 'x', POPT_ARG_INT, &x, 0, "Text x-coordinate", "<int>"},
 		{"set-y", 'y', POPT_ARG_INT, &y, 0, "Text y-coordinate", "<int>"},
@@ -237,13 +336,14 @@ int main(const int argc, const char **argv) {
 					/* Clear mode */
 					uint32_t color32 = strtol(bg_color, NULL, 16);
 					ret = fb_clear(&fb, color32, x, y, width, height);
-					fb_flush(&fb);
 				} else {
 					/* Text mode */
-					ret = fb_write_text(&fb, text);
+					uint32_t color32 = strtol(text_color, NULL, 16);
+					ret = fb_write_text(&fb, text, scale, color32, x, y);
 				}
-				fb_destroy(&fb);
+				fb_flush(&fb);
 			}
+			fb_destroy(&fb);
 		}
 	}
 	poptFreeContext(ctx);
