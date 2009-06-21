@@ -29,8 +29,7 @@
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <string.h>
-/* TODO: what is the proper way to handle this? */
-#include </usr/src/linux/include/asm-arm/arch-omap/omapfb.h>
+#include <asm-arm/arch-omap/omapfb.h>
 
 typedef struct {
 	const char *device; /* path to framebuffer device */
