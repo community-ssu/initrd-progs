@@ -161,11 +161,12 @@ int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t co
 			/* Advance to next pixel row */
 			pxly_out += fb->depth * fb->width * scale;
 		}
-		/* Advance to next letter */
 		if ((c + 1) % max_chars_per_row == 0) {
+			/* Advance to new row */
 			row_out += fb->depth * fb->width * letter_size;
 			letter_out = row_out;
 		} else {
+			/* Advance to next letter in same row */
 			letter_out += fb->depth * letter_size;
 		}
 	}
