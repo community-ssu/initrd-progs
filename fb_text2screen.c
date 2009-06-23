@@ -50,7 +50,9 @@ static inline uint16_t rgb_888_to_565(const uint32_t rgb888) {
 		(((rgb888 & 0x0000ff) >> 3) & 0x001f);
 }
 
-static const uint64_t alphabet[CHAR_MAX] = {
+#define NONPRINTABLE 0xffc399bdbd99c3ffL
+
+static const uint64_t alphabet[256] = {
 	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
 	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
 	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
@@ -82,7 +84,8 @@ static const uint64_t alphabet[CHAR_MAX] = {
 	0x0f063e66663b0000L, 0x78303e33336e0000L, 0x000f06666e3b0000L, 0x001f301e033e0000L,
 	0x00182c0c0c3e0c08L, 0x006e333333330000L, 0x000c1e3333330000L, 0x00367f7f6b630000L,
 	0x0063361c36630000L, 0x1f303e3333330000L, /*z*/0x3f260c193f0000L, 0x380c0c070c0c38L,
-	0x0018181800181818L, 0x00070c0c380c0c07L, 0x0000000000003b6eL,
+	0x0018181800181818L, 0x00070c0c380c0c07L, 0x0000000000003b6eL, NONPRINTABLE,
+	/* TODO: add higher 128 chars? But what encoding? */
 };
 
 /*
@@ -108,14 +111,11 @@ int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t co
 		fputs("Invalid scale\n", stderr);
 		return EXIT_FAILURE;
 	}
-	const int letter_size = scale * 8;
-	const int max_chars_per_row = (fb->width - x) / letter_size;
-	const int max_rows = (fb->height - y) / letter_size;
-	const int len = strlen(text);
-	if (len == 0) {
-		fputs("No text specified\n", stderr);
-		return EXIT_FAILURE;
-	} else if (len > max_chars_per_row * max_rows) {
+	const unsigned int letter_size = scale * 8;
+	const unsigned int max_chars_per_row = (fb->width - x) / letter_size;
+	const unsigned int max_rows = (fb->height - y) / letter_size;
+	const size_t len = strlen(text);
+	if (len > max_chars_per_row * max_rows) {
 		fputs("Text is too long\n", stderr);
 		return EXIT_FAILURE;
 	}
@@ -126,9 +126,8 @@ int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t co
 	/* Pointer to left top letter corner */
 	uint8_t *letter_out = row_out;
 	/* Iterate over chars in text */
-	for (int c = 0; c < len; ++c) {
-		// TODO: this'll break if char is signed
-		const uint64_t letter = alphabet[(unsigned int)text[c]];
+	for (size_t c = 0; c < len; ++c) {
+		const uint64_t letter = alphabet[(unsigned char)text[c]];
 		/* Pointer to left top pixel corner */
 		uint8_t *pxly_out = letter_out;
 		/* Vertical letter axis */
