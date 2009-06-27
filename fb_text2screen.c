@@ -102,7 +102,7 @@ static const uint64_t alphabet[256] = {
  *  - Expects letters to fit square area. Could be fixed to allow rectangular.
  *  - Doesn't accept coordinates and alignment at the same time.
  */
-int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t color,
+static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t color,
 		int x, int y) {
 	if (x < 0 || x > fb->width || y < 0 || y > fb->width) {
 		fputs("Out of screen bounds\n", stderr);
@@ -172,7 +172,7 @@ int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t co
 	return EXIT_SUCCESS;
 }
 
-int fb_init(fb_t *fb) {
+static int fb_init(fb_t *fb) {
 	struct fb_var_screeninfo vinfo;
 	struct fb_fix_screeninfo finfo;
 	if ((fb->fd = open(fb->device, O_RDWR)) < 0) {
@@ -212,7 +212,7 @@ int fb_init(fb_t *fb) {
 	return EXIT_SUCCESS;
 }
 
-void fb_destroy(fb_t *fb) {
+static void fb_destroy(fb_t *fb) {
 	if (fb->fd) {
 		munmap(fb->mem, fb->size);
 		close(fb->fd);
@@ -220,7 +220,7 @@ void fb_destroy(fb_t *fb) {
 	}
 }
 
-void fb_flush(fb_t *fb) {
+static void fb_flush(fb_t *fb) {
 	struct omapfb_update_window update;
 	if (fb->mem) {
 		update.x = 0;
@@ -240,7 +240,7 @@ void fb_flush(fb_t *fb) {
 }
 
 /* Normalizes coordinates (fixes negative width/height) */
-void normalize(int *x, int *y, int *width, int *height) {
+static void normalize(int *x, int *y, int *width, int *height) {
 	if (*width < 0) {
 		*width = -*width;
 		*x -= *width;
@@ -251,7 +251,7 @@ void normalize(int *x, int *y, int *width, int *height) {
 	}
 }
 
-int fb_clear(fb_t *fb, const uint32_t color, int x, int y, int width, int height) {
+static int fb_clear(fb_t *fb, const uint32_t color, int x, int y, int width, int height) {
 	if (width == 0) {
 		width = fb->width - x;
 	}
