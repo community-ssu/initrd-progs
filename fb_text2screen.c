@@ -92,8 +92,6 @@ static const uint64_t alphabet[256] = {
  * Writes letters on screen. Each letter is represented as 8x8 bit matrix.
  * Known limitations:
  *  - ASCII only.
- *  - Doesn't have space (2px * scale) between lines.
- *    This requires changing of limits calculation.
  *  - Doesn't handle \n for force line breaks.
  *    Could be done, but complicates limits calculation and wrapping.
  *  - Doesn't put text at left screen border after line breaks
@@ -111,9 +109,10 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 		fputs("Invalid scale\n", stderr);
 		return EXIT_FAILURE;
 	}
+	const unsigned int space_size = scale * 2;
 	const unsigned int letter_size = scale * 8;
 	const unsigned int max_chars_per_row = (fb->width - x) / letter_size;
-	const unsigned int max_rows = (fb->height - y) / letter_size;
+	const unsigned int max_rows = (fb->height - y) / (letter_size + space_size);
 	const size_t len = strlen(text);
 	if (len > max_chars_per_row * max_rows) {
 		fputs("Text is too long\n", stderr);
@@ -162,7 +161,7 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 		}
 		if ((c + 1) % max_chars_per_row == 0) {
 			/* Advance to new row */
-			row_out += fb->depth * fb->width * letter_size;
+			row_out += fb->depth * fb->width * (letter_size + space_size);
 			letter_out = row_out;
 		} else {
 			/* Advance to next letter in same row */
