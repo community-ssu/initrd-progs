@@ -54,9 +54,9 @@ static inline uint16_t rgb_888_to_565(const uint32_t rgb888) {
 
 static const uint64_t alphabet[256] = {
 	NONPRINTABLE, NONPRINTABLE, NONPRINTABLE, NONPRINTABLE,
-	NONPRINTABLE, NONPRINTABLE, NONPRINTABLE, 0xFFFFFFFFFFFFFFFF,
-	NONPRINTABLE, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
-	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, NONPRINTABLE, NONPRINTABLE,
+	NONPRINTABLE, NONPRINTABLE, NONPRINTABLE, NONPRINTABLE,
+	NONPRINTABLE,/*\n*/NONPRINTABLE, NONPRINTABLE, NONPRINTABLE,
+	NONPRINTABLE, NONPRINTABLE, NONPRINTABLE, NONPRINTABLE,
 	NONPRINTABLE, NONPRINTABLE, NONPRINTABLE, NONPRINTABLE,
 	NONPRINTABLE, NONPRINTABLE, NONPRINTABLE, NONPRINTABLE,
 	NONPRINTABLE, NONPRINTABLE, NONPRINTABLE, NONPRINTABLE,
@@ -75,8 +75,8 @@ static const uint64_t alphabet[256] = {
 	0x007e060606060606L, 0x0063636b7f7f7763L, 0x006363737b6f6763L, 0x001c36636363361cL,
 	0x000f06063e66663fL, 0x00381e3b3333331eL, 0x006766363e66663fL, 0x001e33380e07331eL,
 	0x000c0c0c0c0c0c3fL, 0x003f333333333333L, 0x000c1e3333333333L, 0x0063777f6b636363L,
-	0x0063361c1c366363L, 0x001e0c0c1e333333L, 0x007f060c1830607fL, 0xFFFFFFFFFFFFFFFF,
-	0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xff00000000000000L,
+	0x0063361c1c366363L, 0x001e0c0c1e333333L, 0x007f060c1830607fL, 0x001e06060606061eL,
+	0x00406030180c0603L, 0x001e18181818181eL, 0x0000000063361c08L, 0xff00000000000000L,
 	0x000000180c0cL,/*a*/0x006e333e301e0000L, 0x003b66663e060607L, 0x001e3303331e0000L,
 	0x006e33333e303038L, 0x001e033f331e0000L, 0x000f06060f06361cL, 0x1f303e33336e0000L,
 	0x006766666e360607L, 0x001e0c0c0c0e000cL, 0x1e33333030300030L, 0x0067361e36660607L,
@@ -301,13 +301,13 @@ int main(const int argc, const char **argv) {
 	char *valign = NULL;
 	const struct poptOption options[] = {
 		{"set-text-color", 'T', POPT_ARG_STRING, &text_color, 0,
-			"Use specified color for text. Default is green.", "<color>"},
+			"Use specified color for text. Default is 0x00FF00 (green).", "<color>"},
 		{"set-bg-color", 'B', POPT_ARG_STRING, &bg_color, 0,
 			"Use specified color for background. Default is 0xFFFFFF (white).", "<color>"},
 		{"set-scale", 's', POPT_ARG_INT, &scale, 0,
 			"Set text size", "{1-10}"},
-		{"set-x", 'x', POPT_ARG_INT, &x, 0, "Text x-coordinate", "<int>"},
-		{"set-y", 'y', POPT_ARG_INT, &y, 0, "Text y-coordinate", "<int>"},
+		{"set-x", 'x', POPT_ARG_INT, &x, 0, "Text/clear area x-coordinate", "<int>"},
+		{"set-y", 'y', POPT_ARG_INT, &y, 0, "Text/clear area y-coordinate", "<int>"},
 		{"set-width", 'w', POPT_ARG_INT, &width, 0, "Clear area width", "<int>"},
 		{"set-height", 'h', POPT_ARG_INT, &height, 0, "Clear area height", "<int>"},
 		/* TODO: can these be used with --clear? */
