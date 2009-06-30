@@ -101,7 +101,7 @@ static const uint64_t alphabet[256] = {
  *  - Doesn't accept coordinates and alignment at the same time.
  */
 static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t color,
-		int x, int y) {
+		const int x, const int y) {
 	if (x < 0 || x > fb->width || y < 0 || y > fb->width) {
 		fputs("Out of screen bounds\n", stderr);
 		return EXIT_FAILURE;
@@ -262,7 +262,7 @@ static int fb_clear(fb_t *fb, const uint32_t color, int x, int y, int width, int
 		fputs("Boundaries out of range", stderr);
 		return EXIT_FAILURE;
 	}
-	uint16_t color16 = rgb_888_to_565(color);
+	const uint16_t color16 = rgb_888_to_565(color);
 	uint8_t *out = (uint8_t *)fb->mem + fb->depth * (fb->width * y + x);
 	for (int j = 0; j < height; j++) {
 		uint8_t *row_out = out;
@@ -299,8 +299,6 @@ int main(const int argc, const char **argv) {
 	int height = 0;
 	char *halign = NULL;
 	char *valign = NULL;
-
-	fb_t fb = {"/dev/fb0", 0, 0, 0, 0, NULL, 0};
 	const struct poptOption options[] = {
 		{"set-text-color", 'T', POPT_ARG_STRING, &text_color, 0,
 			"Use specified color for text. Default is green.", "<color>"},
@@ -336,6 +334,7 @@ int main(const int argc, const char **argv) {
 			poptStrerror(rc));
 		ret = EXIT_FAILURE;
 	} else {
+		fb_t fb = {"/dev/fb0", 0, 0, 0, 0, NULL, 0};
 		/* TODO: fail if more than one non-option arg is given. */
 		if (poptPeekArg(ctx) != NULL) {
 			fb.device = poptGetArg(ctx);
@@ -353,11 +352,11 @@ int main(const int argc, const char **argv) {
 			if (ret == EXIT_SUCCESS) {
 				if (clear) {
 					/* Clear mode */
-					uint32_t color32 = strtol(bg_color, NULL, 16);
+					const uint32_t color32 = strtol(bg_color, NULL, 16);
 					ret = fb_clear(&fb, color32, x, y, width, height);
 				} else {
 					/* Text mode */
-					uint32_t color32 = strtol(text_color, NULL, 16);
+					const uint32_t color32 = strtol(text_color, NULL, 16);
 					ret = fb_write_text(&fb, text, scale, color32, x, y);
 				}
 				fb_flush(&fb);
