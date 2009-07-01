@@ -32,7 +32,7 @@
 #include <asm-arm/arch-omap/omapfb.h>
 #include <limits.h>
 
-typedef struct {
+typedef struct fb_s {
 	const char *device; /* path to framebuffer device */
 	int fd; /* framebuffer file descriptor */
 	int width; /* screen width (in px) */
