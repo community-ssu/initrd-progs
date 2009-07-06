@@ -50,6 +50,10 @@ static inline uint16_t rgb_888_to_565(const uint32_t rgb888) {
 		(((rgb888 & 0x0000ff) >> 3) & 0x001f);
 }
 
+/*
+ * Fills rectangular area with given color.
+ * Expects coordinates and sizes to be validated and normalized.
+ */
 static void fill(uint8_t *out, const fb_t *fb, const uint32_t color,
 		const int width, const int height) {
 	const uint16_t color16 = rgb_888_to_565(color);
