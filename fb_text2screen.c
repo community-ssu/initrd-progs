@@ -50,6 +50,25 @@ static inline uint16_t rgb_888_to_565(const uint32_t rgb888) {
 		(((rgb888 & 0x0000ff) >> 3) & 0x001f);
 }
 
+static void fill(uint8_t *out, const fb_t *fb, const uint32_t color,
+		const int width, const int height) {
+	const uint16_t color16 = rgb_888_to_565(color);
+	for (int j = 0; j < height; j++) {
+		uint8_t *row_out = out;
+		for (int i = 0; i < width; i++) {
+			if (fb->depth == 2) {
+				*(uint16_t *)row_out = color16;
+			} else if (fb->depth == 4) {
+				*(uint32_t *)row_out = color;
+			} else {
+				assert(0);
+			}
+			row_out += fb->depth;
+		}
+		out += fb->depth * fb->width;
+	}
+}
+
 #define NONPRINTABLE 0xffc399bdbd99c3ffL
 
 static const uint64_t alphabet[256] = {
@@ -101,7 +120,7 @@ static const uint64_t alphabet[256] = {
  *  - Doesn't accept coordinates and alignment at the same time.
  */
 static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t color,
-		const int x, const int y) {
+		const int x, const int y, const char *halign, const char *valign) {
 	if (x < 0 || x > fb->width || y < 0 || y > fb->width) {
 		fputs("Out of screen bounds\n", stderr);
 		return EXIT_FAILURE;
@@ -118,7 +137,6 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 		fputs("Text is too long\n", stderr);
 		return EXIT_FAILURE;
 	}
-	const uint16_t color16 = rgb_888_to_565(color);
 
 	/* Pointer to left top row corner */
 	uint8_t *row_out = (uint8_t *)fb->mem + fb->depth * (fb->width * y + x);
@@ -135,23 +153,7 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 			/* Horizontal letter axis */
 			for (int lx = 0; lx < 8; ++lx) {
 				if (letter >> (ly * 8 + lx) & 1) {
-					uint8_t *zy_out = pxlx_out;
-					/* Vertical zoom axis */
-					for (int zy = 0; zy < scale; ++zy) {
-						uint8_t *zx_out = zy_out;
-						/* Horizontal zoom axis */
-						for (int zx = 0; zx < scale; ++zx) {
-							if (fb->depth == 2) {
-								*(uint16_t *)zx_out = color16;
-							} else if (fb->depth == 4) {
-								*(uint32_t *)zx_out = color;
-							} else {
-								assert(0);
-							}
-							zx_out += fb->depth;
-						}
-						zy_out += fb->depth * fb->width;
-					}
+					fill(pxlx_out, fb, color, scale, scale);
 				}
 				/* Advance to next pixel */
 				pxlx_out += fb->depth * scale;
@@ -262,22 +264,8 @@ static int fb_clear(fb_t *fb, const uint32_t color, int x, int y, int width, int
 		fputs("Boundaries out of range", stderr);
 		return EXIT_FAILURE;
 	}
-	const uint16_t color16 = rgb_888_to_565(color);
 	uint8_t *out = (uint8_t *)fb->mem + fb->depth * (fb->width * y + x);
-	for (int j = 0; j < height; j++) {
-		uint8_t *row_out = out;
-		for (int i = 0; i < width; i++) {
-			if (fb->depth == 2) {
-				*(uint16_t *)row_out = color16;
-			} else if (fb->depth == 4) {
-				*(uint32_t *)row_out = color;
-			} else {
-				assert(0);
-			}
-			row_out += fb->depth;
-		}
-		out += fb->depth * fb->width;
-	}
+	fill(out, fb, color, width, height);
 	return EXIT_SUCCESS;
 }
 
@@ -357,7 +345,7 @@ int main(const int argc, const char **argv) {
 				} else {
 					/* Text mode */
 					const uint32_t color32 = strtol(text_color, NULL, 16);
-					ret = fb_write_text(&fb, text, scale, color32, x, y);
+					ret = fb_write_text(&fb, text, scale, color32, x, y, halign, valign);
 				}
 				fb_flush(&fb);
 			}
