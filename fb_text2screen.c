@@ -170,8 +170,6 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 	}
 
 	const unsigned int max_rows = (fb->height - y) / row_height;
-	printf("maxrows: %d", max_rows);
-
 	if (len > (max_rows - 1) * max_chars_per_row + (fb->width - x) / letter_size) {
 		fputs("Text is too long\n", stderr);
 		return EXIT_FAILURE;
