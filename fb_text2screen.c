@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <string.h>
+#include <strings.h>
 #include <asm-arm/arch-omap/omapfb.h>
 #include <limits.h>
 
@@ -122,10 +123,7 @@ static const uint64_t alphabet[256] = {
  */
 static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t color,
 		int x, int y, const char *halign, const char *valign) {
-	if (x < 0 || x > fb->width || y < 0 || y > fb->width) {
-		fputs("Out of screen bounds\n", stderr);
-		return EXIT_FAILURE;
-	} else if (scale < 1) {
+	if (scale < 1) {
 		fputs("Invalid scale\n", stderr);
 		return EXIT_FAILURE;
 	}
@@ -143,7 +141,36 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 		return EXIT_FAILURE;
 	}
 
+	const unsigned int first_line_len = len > max_chars_per_row ? max_chars_per_row : len;
+	if (halign == NULL || strcasecmp(halign, "left") == 0) {
+		/* noop */
+	} else if (strcasecmp(halign, "right") == 0) {
+		x = fb->width - first_line_len * letter_size;
+	} else if (strcasecmp(halign, "center") == 0) {
+		x = (fb->width - first_line_len * letter_size) / 2;
+	} else {
+		fputs("Invalid horizontal alignment\n", stderr);
+		return EXIT_FAILURE;
+	}
+	const unsigned int rows_in_text = (len + max_chars_per_row - 1) / max_chars_per_row;
+	if (valign == NULL || strcasecmp(valign, "top") == 0) {
+		/* noop */
+	} else if (strcasecmp(valign, "center") == 0) {
+		y = (fb->height - row_height * rows_in_text) / 2;
+	} else if (strcasecmp(valign, "bottom") == 0) {
+		y = fb->height - row_height * rows_in_text;
+	} else {
+		fputs("Invalid vertical alignment\n", stderr);
+		return EXIT_FAILURE;
+	}
+
+	if (x < 0 || x > fb->width || y < 0 || y > fb->width) {
+		fputs("Out of screen bounds\n", stderr);
+		return EXIT_FAILURE;
+	}
+
 	const unsigned int max_rows = (fb->height - y) / row_height;
+	printf("maxrows: %d", max_rows);
 
 	if (len > (max_rows - 1) * max_chars_per_row + (fb->width - x) / letter_size) {
 		fputs("Text is too long\n", stderr);
@@ -176,10 +203,10 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 		/* Advance to next letter in same row */
 		letter_out += fb->depth * letter_size;
 		const int last_letter_in_row = fb->depth
-			* (fb->width * (row_height * row + 1) - letter_size);
+			* (fb->width * (y + row_height * row + 1) - letter_size);
 		if (letter_out - screen_out > last_letter_in_row) {
 			++row;
-			letter_out = screen_out + fb->depth * fb->width * row_height * row;
+			letter_out = screen_out + fb->depth * fb->width * (y + row_height * row);
 		}
 	}
 	return EXIT_SUCCESS;
