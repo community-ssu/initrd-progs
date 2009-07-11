@@ -326,9 +326,9 @@ int main(const int argc, const char **argv) {
 	char *valign = NULL;
 	const struct poptOption options[] = {
 		{"set-text-color", 'T', POPT_ARG_STRING, &text_color, 0,
-			"Use specified color for text. Default is 0x00FF00 (green).", "<color>"},
+			"Use specified 24bit color for text. Default is 0x00FF00 (green).", "<color>"},
 		{"set-bg-color", 'B', POPT_ARG_STRING, &bg_color, 0,
-			"Use specified color for background. Default is 0xFFFFFF (white).", "<color>"},
+			"Use specified 24bit color for background. Default is 0xFFFFFF (white).", "<color>"},
 		{"set-scale", 's', POPT_ARG_INT, &scale, 0,
 			"Set text size", "{1-10}"},
 		{"set-x", 'x', POPT_ARG_INT, &x, 0, "Text/clear area x-coordinate", "<int>"},
