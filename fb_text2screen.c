@@ -335,7 +335,6 @@ int main(const int argc, const char **argv) {
 		{"set-y", 'y', POPT_ARG_INT, &y, 0, "Text/clear area y-coordinate", "<int>"},
 		{"set-width", 'w', POPT_ARG_INT, &width, 0, "Clear area width", "<int>"},
 		{"set-height", 'h', POPT_ARG_INT, &height, 0, "Clear area height", "<int>"},
-		/* TODO: can these be used with --clear? */
 		{"set-halign", 'H', POPT_ARG_STRING, &halign, 0,
 			"Horizontal aligment", "{left|center|right}"},
 		{"set-valign", 'V', POPT_ARG_STRING, &valign, 0,
