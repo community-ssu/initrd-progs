@@ -117,14 +117,11 @@ static const uint64_t alphabet[256] = {
  *  - ASCII only.
  *  - Doesn't handle \n for force line breaks.
  *    Could be done, but complicates limits calculation and wrapping.
- *  - Doesn't put text at left screen border after line breaks
- *    caused by overly long lines. Original text2screen does this.
- *    However, it is arguable, which behavior is better.
  *  - Expects letters to fit square area. Could be fixed to allow rectangular.
  *  - Doesn't accept coordinates and alignment at the same time.
  */
 static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t color,
-		const int x, const int y, const char *halign, const char *valign) {
+		int x, int y, const char *halign, const char *valign) {
 	if (x < 0 || x > fb->width || y < 0 || y > fb->width) {
 		fputs("Out of screen bounds\n", stderr);
 		return EXIT_FAILURE;
@@ -134,18 +131,29 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 	}
 	const unsigned int space_size = scale * 2;
 	const unsigned int letter_size = scale * 8;
-	const unsigned int max_chars_per_row = (fb->width - x) / letter_size;
-	const unsigned int max_rows = (fb->height - y) / (letter_size + space_size);
+	const unsigned int max_chars_per_row = fb->width / letter_size;
+	const unsigned int row_height = space_size + letter_size;
 	const size_t len = strlen(text);
-	if (len > max_chars_per_row * max_rows) {
+
+	if (x != 0 && halign != NULL) {
+		fputs("You can't specify -H and -x at the same time\n", stderr);
+		return EXIT_FAILURE;
+	} else if (y != 0 && valign != NULL) {
+		fputs("You can't specify -V and -y at the same time\n", stderr);
+		return EXIT_FAILURE;
+	}
+
+	const unsigned int max_rows = (fb->height - y) / row_height;
+
+	if (len > (max_rows - 1) * max_chars_per_row + (fb->width - x) / letter_size) {
 		fputs("Text is too long\n", stderr);
 		return EXIT_FAILURE;
 	}
 
-	/* Pointer to left top row corner */
-	uint8_t *row_out = (uint8_t *)fb->mem + fb->depth * (fb->width * y + x);
+	uint8_t *screen_out = (uint8_t *)fb->mem;
 	/* Pointer to left top letter corner */
-	uint8_t *letter_out = row_out;
+	uint8_t *letter_out = screen_out + fb->depth * (fb->width * y + x);
+	unsigned int row = 0;
 	/* Iterate over chars in text */
 	for (size_t c = 0; c < len; ++c) {
 		const uint64_t letter = alphabet[(unsigned char)text[c]];
@@ -165,13 +173,13 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 			/* Advance to next pixel row */
 			pxly_out += fb->depth * fb->width * scale;
 		}
-		if ((c + 1) % max_chars_per_row == 0) {
-			/* Advance to new row */
-			row_out += fb->depth * fb->width * (letter_size + space_size);
-			letter_out = row_out;
-		} else {
-			/* Advance to next letter in same row */
-			letter_out += fb->depth * letter_size;
+		/* Advance to next letter in same row */
+		letter_out += fb->depth * letter_size;
+		const int last_letter_in_row = fb->depth
+			* (fb->width * (row_height * row + 1) - letter_size);
+		if (letter_out - screen_out > last_letter_in_row) {
+			++row;
+			letter_out = screen_out + fb->depth * fb->width * row_height * row;
 		}
 	}
 	return EXIT_SUCCESS;
