@@ -314,7 +314,7 @@ int main(const int argc, const char **argv) {
 	const struct poptOption actions[] = {
 		{"set-text", 't', POPT_ARG_STRING, &text, 0, "Write text on screen", "<text>"},
 		{"clear", 'c', POPT_ARG_NONE, &clear, 0, "Clear screen or its part", NULL},
-		{"version", 'V', POPT_ARG_NONE, &version, 0, "Output version", NULL},
+		{"version", 0, POPT_ARG_NONE, &version, 0, "Output version", NULL},
 		POPT_TABLEEND
 	};
 
