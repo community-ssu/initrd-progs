@@ -1,7 +1,7 @@
 # Generic info
 cmake_minimum_required(VERSION 2.6)
 project(opendsme C)
-set(opendsme_VERSION 0.1)
+set(opendsme_VERSION 0.2-git)
 
 # Dependencies
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
