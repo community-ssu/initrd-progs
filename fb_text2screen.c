@@ -32,6 +32,7 @@
 #include <strings.h>
 #include <asm-arm/arch-omap/omapfb.h>
 #include <limits.h>
+#include "config.h"
 
 typedef struct fb_s {
 	const char *device; /* path to framebuffer device */
@@ -308,10 +309,12 @@ static int fb_clear(fb_t *fb, const uint32_t color, int x, int y, int width, int
 
 int main(const int argc, const char **argv) {
 	char *text = NULL;
+	int version = 0;
 	int clear = 0;
 	const struct poptOption actions[] = {
 		{"set-text", 't', POPT_ARG_STRING, &text, 0, "Write text on screen", "<text>"},
 		{"clear", 'c', POPT_ARG_NONE, &clear, 0, "Clear screen or its part", NULL},
+		{"version", 'V', POPT_ARG_NONE, &version, 0, "Output version", NULL},
 		POPT_TABLEEND
 	};
 
@@ -363,10 +366,17 @@ int main(const int argc, const char **argv) {
 		if (poptPeekArg(ctx) != NULL) {
 			fb.device = poptGetArg(ctx);
 		}
-		if (text && clear) {
+		if (text && clear && version) {
 			/* More than one action at a time */
 			puts("Only one action can be given");
 			ret = EXIT_FAILURE;
+		} else if (version) {
+			printf("fb_text2screen %s\n\n", VERSION);
+			puts("Copyright (C) 2009 Marat Radchenko <marat@slonopotamus.org>\n"
+				"License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
+				"This is free software: you are free to change and redistribute it.\n"
+				"There is NO WARRANTY, to the extent permitted by law.");
+			ret = EXIT_SUCCESS;
 		} else if (!text && !clear) {
 			/* No action given */
 			poptPrintHelp(ctx, stdout, 0);
