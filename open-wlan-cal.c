@@ -30,11 +30,13 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <mtd/mtd-user.h>
+#include <popt.h>
+#include "config.h"
 
 const char *default_dsme_path = "/tmp/dsmesock";
 const char *default_direct_access_path = "/dev/mtd1";
 
-size_t skip_and_read(const int fd, void *buf, const size_t bytes_read,
+static size_t skip_and_read(const int fd, void *buf, const size_t bytes_read,
 		const size_t bytes_skip) {
 	const size_t total_read = bytes_skip + bytes_read;
 	char data[total_read];
@@ -45,7 +47,7 @@ size_t skip_and_read(const int fd, void *buf, const size_t bytes_read,
 	return ret - bytes_skip;
 }
 
-size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
+static size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
 		const size_t bytes_read, const size_t bytes_skip, const int select_mode) {
 	ssize_t ret;
 	int fd;
@@ -55,7 +57,8 @@ size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
 		return -1;
 	}
 	/* Sadly, strace doesn't know mtd ioctl codes and misinterprets them as mtrr codes.
-		Here's mapping table (first column is real code, second - what strace thinks it is):
+		Here's mapping table
+		(first column is real code, second - what strace thinks it is):
 		MEMGETINFO				MTRRIOC_SET_ENTRY
 		MEMERASE					MTRRIOC_DEL_ENTRY
 		MEMWRITEOOB				MTRRIOC_GET_ENTRY
@@ -93,8 +96,9 @@ size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
 	return ret;
 }
 
-ssize_t get_from_dsme(const char *path, const void *request, const size_t bytes_send,
-		void *buf, const size_t bytes_read, const size_t bytes_skip) {
+static ssize_t get_from_dsme(const char *path, const void *request,
+		const size_t bytes_send, void *buf, const size_t bytes_read,
+		const size_t bytes_skip) {
 	int fd;
 	ssize_t ret;
 	struct sockaddr_un sockaddr;
@@ -131,7 +135,7 @@ ssize_t get_from_dsme(const char *path, const void *request, const size_t bytes_
 	return ret;
 }
 
-ssize_t write_to(const char *path, const void *value, const size_t len) {
+static ssize_t write_to(const char *path, const void *value, const size_t len) {
 	int f;
 	ssize_t ret;
 	if ((f = open(path, O_WRONLY)) == -1) {
@@ -151,12 +155,12 @@ ssize_t write_to(const char *path, const void *value, const size_t len) {
 	return ret;
 }
 
-void print_start(const char *msg) {
+static void print_start(const char *msg) {
 	printf(msg);
 	fflush(stdout);
 }
 
-void print_end(const ssize_t result) {
+static void print_end(const ssize_t result) {
 	if (result != -1) {
 		puts("[OK]");
 	}
@@ -164,7 +168,7 @@ void print_end(const ssize_t result) {
 
 /* Country */
 
-void set_default_country() {
+static void set_default_country() {
 	/* const char *default_country_req
 		= " \0\0\0\0\22\0\0pp_data\0\0\0\0\0\0\0\0\0\0\0\0\0\10\211\0\0"; */
 	/* TODO: at least UK tablets have 0x10 instead of 0x30 */
@@ -175,16 +179,17 @@ void set_default_country() {
 
 /* MAC */
 
-ssize_t get_mac_direct(const char *path, void *buf, const size_t len) {
+static ssize_t get_mac_direct(const char *path, void *buf, const size_t len) {
 	return get_from_mtd(path, buf, 36, len, 4, MTD_OTP_USER);
 }
 
-ssize_t get_mac_from_dsme(const char *path, void *buf, const size_t len) {
+static ssize_t get_mac_from_dsme(const char *path, void *buf, const size_t len) {
 	const char *req = " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
 	return get_from_dsme(path, req, 32, buf, len, 36);
 }
 
-void set_mac(const char *path, ssize_t (*get)(const char *, void *, const size_t len)) {
+static void set_mac(const char *path,
+		ssize_t (*get)(const char *, void *, const size_t len)) {
 	const size_t mac_len = 6;
 	const char *file = "/sys/devices/platform/wlan-omap/cal_mac_address";
 	char mac_address[mac_len];
@@ -204,7 +209,8 @@ void set_mac(const char *path, ssize_t (*get)(const char *, void *, const size_t
 
 /* IQ values */
 
-ssize_t get_iq_values_direct(const char *path, char *buf, const size_t len) {
+static ssize_t get_iq_values_direct(const char *path, char *buf,
+		const size_t len) {
 	ssize_t ret;
 	/* TODO: is it correct? */
 	memcpy(buf, "l\0\0\0", 4);
@@ -212,12 +218,13 @@ ssize_t get_iq_values_direct(const char *path, char *buf, const size_t len) {
 	return ret == -1 ? ret : ret + 4;
 }
 
-ssize_t get_iq_values_from_dsme(const char *path, char *buf, const size_t len) {
+static ssize_t get_iq_values_from_dsme(const char *path, char *buf,
+		const size_t len) {
 	const char *req = " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
 	return get_from_dsme(path, req, 32, buf, len, 28);
 }
 
-void set_iq_values(const char *path,
+static void set_iq_values(const char *path,
 		ssize_t (*get)(const char *, char *, const size_t len)) {
 	/* 14 (items + 1 empty) * 8 (read_item_len) */
 	char input[112];
@@ -247,16 +254,18 @@ void set_iq_values(const char *path,
 
 /* TX curve data */
 
-ssize_t get_tx_curve_direct(const char *path, void *buf, const size_t len) {
+static ssize_t get_tx_curve_direct(const char *path, void *buf,
+		const size_t len) {
 	return get_from_mtd(path, buf, 57380, len, 14, -1);
 }
 
-ssize_t get_tx_curve_from_dsme(const char *path, void *buf, const size_t len) {
+static ssize_t get_tx_curve_from_dsme(const char *path, void *buf,
+		const size_t len) {
 	const char *req = " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
 	return get_from_dsme(path, req, 32, buf, len, 46);
 }
 
-void set_tx_curve(const char *path,
+static void set_tx_curve(const char *path,
 		ssize_t (*get)(const char *, void *, const size_t len)) {
 	/* 38 * 13 (items) */
 	char input[494];
@@ -283,7 +292,7 @@ void set_tx_curve(const char *path,
 }
 
 /* TX limits */
-void set_tx_limits() {
+static void set_tx_limits() {
 	/* TODO: UK tablets have a bit different value. I think there's a conditional switch
 		based on country code, because it doesn't have any additional input. */
 	print_start("Pushing TX limits...");
@@ -308,7 +317,7 @@ void set_tx_limits() {
 
 /* RX tuned values */
 
-void set_rx_values() {
+static void set_rx_values() {
 	print_start("Pushing RX tuned values...Using default values ");
 	print_end(write_to("/sys/devices/platform/wlan-omap/cal_rssi",
 		"\1\0"
@@ -329,7 +338,7 @@ void set_rx_values() {
 		106));
 }
 
-int usage(const char *progname) {
+static int usage(const char *progname) {
 	fprintf(stderr, "Usage: %s [-d] [PATH]\n"
 		"  -d\tIf specified, data is read directly from mtd partition"
 		" instead of dsme server socket.\n"
@@ -340,56 +349,56 @@ int usage(const char *progname) {
 	return EXIT_FAILURE;
 }
 
-int main(const int argc, char *argv[]) {
-	const char *progname = argv[0];
-	const char *path;
+int main(const int argc, const char **argv) {
 	int direct = 0;
-	int verbose = 0;
-
-	while (1) {
-		int opt;
-		if ((opt = getopt(argc, argv, "dvh?")) == -1) {
-			break;
-		}
-		switch(opt) {
-			case 'd':
-				direct = 1;
-				break;
-			case 'v':
-				verbose = 1;
-				break;
-			default:
-				return usage(progname);
-		}
-	}
-
-	assert(optind <= argc);
-	if (optind == argc) {
-		/* No path given */
-		if (direct) {
+	int version = 0;
+	const struct poptOption options[] = {
+		{"direct-mode", 'd', POPT_ARG_NONE, &direct, 0,
+			"If specified, data is read directly from mtd partition"
+			" instead of dsme server socket.", NULL},
+		{"version", 0, POPT_ARG_NONE, &version, 0, "Output version", NULL},
+		POPT_TABLEEND
+	};
+	const struct poptOption popts[] = {
+		{NULL, 0, POPT_ARG_INCLUDE_TABLE, &options, 0, "Options:", NULL},
+		POPT_AUTOHELP
+		POPT_TABLEEND
+	};
+	poptContext ctx = poptGetContext(NULL, argc, argv, popts, POPT_CONTEXT_NO_EXEC);
+	poptSetOtherOptionHelp(ctx, "[OPTION...] [PATH]");
+	const int rc = poptGetNextOpt(ctx);
+	int ret;
+	if (rc != -1) {
+		/* Invalid option */
+		fprintf(stderr, "%s: %s\n",
+			poptBadOption(ctx, POPT_BADOPTION_NOALIAS),
+			poptStrerror(rc));
+		ret = EXIT_FAILURE;
+	} else if (version) {
+			printf("open-wlan-cal %s\n\n", VERSION);
+			puts("Copyright (C) 2009 Marat Radchenko <marat@slonopotamus.org>\n"
+				"License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
+				"This is free software: you are free to change and redistribute it.\n"
+				"There is NO WARRANTY, to the extent permitted by law.");
+		ret = EXIT_SUCCESS;
+	} else {
+		const char *path;
+		if (poptPeekArg(ctx) != NULL) {
+			path = poptGetArg(ctx);
+		} else if (direct) {
 			path = default_direct_access_path;
 		} else {
 			path = default_dsme_path;
 		}
-	} else if (optind + 1 == argc) {
-		/* Path was given */
-		path = argv[optind];
-	} else {
-		/* More than one non-opt arg */
-		return usage(progname);
+
+		set_default_country();
+		set_mac(path, direct ? get_mac_direct : get_mac_from_dsme);
+		set_iq_values(path, direct ? get_iq_values_direct : get_iq_values_from_dsme);
+		set_tx_curve(path, direct ? get_tx_curve_direct : get_tx_curve_from_dsme);
+		set_tx_limits();
+		set_rx_values();
+		ret = EXIT_SUCCESS;
 	}
-
-	if (verbose) {
-		const char *modestr = direct ? "direct" : "dsme";
-		printf("Using %s mode, reading from %s\n", modestr, path);
-	}
-
-	set_default_country();
-	set_mac(path, direct ? get_mac_direct : get_mac_from_dsme);
-	set_iq_values(path, direct ? get_iq_values_direct : get_iq_values_from_dsme);
-	set_tx_curve(path, direct ? get_tx_curve_direct : get_tx_curve_from_dsme);
-	set_tx_limits();
-	set_rx_values();
-
-	return EXIT_SUCCESS;
+	poptFreeContext(ctx);
+	return ret;
 }

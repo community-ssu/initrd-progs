@@ -1,0 +1,1 @@
+#define VERSION "${opendsme_VERSION}"

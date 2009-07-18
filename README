@@ -4,6 +4,7 @@ http://git.slonopotamus.org/?p=opendsme
 Dependencies
 ------------
 CMake >= 2.6 is required to build from sources.
+popt is required at build and runtime for command-line args processing.
 
 Compiling
 ---------
