@@ -3,4 +3,4 @@ if [ "x$1" == "x" ]; then
 	echo "Usage: $0 <version>"
 	exit 1
 fi
-git archive --format=tar --prefix=fb_text2screen-$1/ v$1 | gzip >fb_text2screen-$1.tar.gz
+git archive --format=tar --prefix=opendsme-$1/ v$1 | gzip >opendsme-$1.tar.gz
