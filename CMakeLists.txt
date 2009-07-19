@@ -24,6 +24,8 @@ add_definitions(${CMAKE_REQUIRED_FLAGS})
 add_definitions(-D_FORTIFY_SOURCE=2)
 add_executable(open-wlan-cal open-wlan-cal.c)
 target_link_libraries(open-wlan-cal ${Popt_LIBRARY})
+add_executable(open-cal-tool open-cal-tool.c)
+target_link_libraries(open-cal-tool ${Popt_LIBRARY})
 
 # Tests
 enable_testing()
