@@ -33,8 +33,8 @@
 #include <popt.h>
 #include "config.h"
 
-const char *default_dsme_path = "/tmp/dsmesock";
-const char *default_direct_access_path = "/dev/mtd1";
+#define DEFAULT_DSME_PATH "/tmp/dsmesock"
+#define DEFAULT_DIRECT_ACCESS_PATH "/dev/mtd1"
 
 static size_t skip_and_read(const int fd, void *buf, const size_t bytes_read,
 		const size_t bytes_skip) {
@@ -338,17 +338,6 @@ static void set_rx_values() {
 		106));
 }
 
-static int usage(const char *progname) {
-	fprintf(stderr, "Usage: %s [-d] [PATH]\n"
-		"  -d\tIf specified, data is read directly from mtd partition"
-		" instead of dsme server socket.\n"
-		"  PATH\tSpecifies where path to mtd partition if -d option is used"
-		" or to dsme server socket path otherwise.\n"
-		"\tIf no value is specified, %s is used in direct access mode and %s in dsme.\n",
-		progname, default_direct_access_path, default_dsme_path);
-	return EXIT_FAILURE;
-}
-
 int main(const int argc, const char **argv) {
 	int direct = 0;
 	int version = 0;
@@ -365,7 +354,11 @@ int main(const int argc, const char **argv) {
 		POPT_TABLEEND
 	};
 	poptContext ctx = poptGetContext(NULL, argc, argv, popts, POPT_CONTEXT_NO_EXEC);
-	poptSetOtherOptionHelp(ctx, "[OPTION...] [PATH]");
+	poptSetOtherOptionHelp(ctx, "[OPTION...] [PATH]\n"
+		"  PATH\tSpecifies where path to mtd partition if -d option is used or to dsme"
+		" server socket path otherwise. If no value is specified, "
+		DEFAULT_DIRECT_ACCESS_PATH  " is used in direct access mode and "
+		DEFAULT_DSME_PATH " in dsme.");
 	const int rc = poptGetNextOpt(ctx);
 	int ret;
 	if (rc != -1) {
@@ -386,9 +379,9 @@ int main(const int argc, const char **argv) {
 		if (poptPeekArg(ctx) != NULL) {
 			path = poptGetArg(ctx);
 		} else if (direct) {
-			path = default_direct_access_path;
+			path = DEFAULT_DIRECT_ACCESS_PATH;
 		} else {
-			path = default_dsme_path;
+			path = DEFAULT_DSME_PATH;
 		}
 
 		set_default_country();
