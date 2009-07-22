@@ -16,19 +16,24 @@ if(!${HAVE_MTD_USER_H})
 endif()
 
 # config.h
-configure_file("${PROJECT_SOURCE_DIR}/config.h.in" "${PROJECT_BINARY_DIR}/config.h")
+configure_file("${PROJECT_SOURCE_DIR}/config.h.in"
+	"${PROJECT_BINARY_DIR}/config.h")
 
 # Executables
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 add_definitions(${CMAKE_REQUIRED_FLAGS})
 add_definitions(-D_FORTIFY_SOURCE=2)
+
+add_library(opencal SHARED libopencal.c)
 add_executable(open-wlan-cal open-wlan-cal.c)
-target_link_libraries(open-wlan-cal ${Popt_LIBRARY})
+target_link_libraries(open-wlan-cal ${Popt_LIBRARY} opencal)
 add_executable(open-cal-tool open-cal-tool.c)
-target_link_libraries(open-cal-tool ${Popt_LIBRARY})
+target_link_libraries(open-cal-tool ${Popt_LIBRARY} opencal)
 
 # Tests
 enable_testing()
 
 # Installation
-install(TARGETS open-wlan-cal RUNTIME DESTINATION sbin)
+install(TARGETS
+	open-cal-tool open-wlan-cal
+	RUNTIME DESTINATION sbin)
