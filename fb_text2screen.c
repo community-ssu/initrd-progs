@@ -34,7 +34,7 @@
 #include <limits.h>
 #include "config.h"
 
-typedef struct fb_s {
+struct fb {
 	const char *device; /* path to framebuffer device */
 	int fd; /* framebuffer file descriptor */
 	int width; /* screen width (in px) */
@@ -42,7 +42,7 @@ typedef struct fb_s {
 	unsigned int depth; /* screen depth in bytes per pixel */
 	void *mem; /* mmaped video memory */
 	size_t size; /* mmaped region size */
-} fb_t;
+};
 
 /* Converts 24-bit rgb color to 16-bit rgb */
 static inline uint16_t rgb_888_to_565(const uint32_t rgb888) {
@@ -56,7 +56,7 @@ static inline uint16_t rgb_888_to_565(const uint32_t rgb888) {
  * Fills rectangular area with given color.
  * Expects coordinates and sizes to be validated and normalized.
  */
-static void fill(uint8_t *out, const fb_t *fb, const uint32_t color,
+static void fill(uint8_t *out, const struct fb *fb, const uint32_t color,
 		const int width, const int height) {
 	const uint16_t color16 = rgb_888_to_565(color);
 	for (int j = 0; j < height; j++) {
@@ -122,7 +122,7 @@ static const uint64_t alphabet[256] = {
  *  - Expects letters to fit square area. Could be fixed to allow rectangular.
  *  - Doesn't accept coordinates and alignment at the same time.
  */
-static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint32_t color,
+static int fb_write_text(struct fb *fb, const char *text, const int scale, const uint32_t color,
 		int x, int y, const char *halign, const char *valign) {
 	if (scale < 1) {
 		fputs("Invalid scale\n", stderr);
@@ -211,7 +211,7 @@ static int fb_write_text(fb_t *fb, const char *text, const int scale, const uint
 	return EXIT_SUCCESS;
 }
 
-static int fb_init(fb_t *fb) {
+static int fb_init(struct fb *fb) {
 	struct fb_var_screeninfo vinfo;
 	struct fb_fix_screeninfo finfo;
 	if ((fb->fd = open(fb->device, O_RDWR)) < 0) {
@@ -251,7 +251,7 @@ static int fb_init(fb_t *fb) {
 	return EXIT_SUCCESS;
 }
 
-static void fb_destroy(fb_t *fb) {
+static void fb_destroy(struct fb *fb) {
 	if (fb->fd) {
 		munmap(fb->mem, fb->size);
 		close(fb->fd);
@@ -259,7 +259,7 @@ static void fb_destroy(fb_t *fb) {
 	}
 }
 
-static void fb_flush(fb_t *fb) {
+static void fb_flush(struct fb *fb) {
 	struct omapfb_update_window update;
 	if (fb->mem) {
 		update.x = 0;
@@ -290,7 +290,8 @@ static void normalize(int *x, int *y, int *width, int *height) {
 	}
 }
 
-static int fb_clear(fb_t *fb, const uint32_t color, int x, int y, int width, int height) {
+static int fb_clear(struct fb *fb, const uint32_t color, int x, int y,
+		int width, int height) {
 	if (width == 0) {
 		width = fb->width - x;
 	}
@@ -361,7 +362,7 @@ int main(const int argc, const char **argv) {
 			poptStrerror(rc));
 		ret = EXIT_FAILURE;
 	} else {
-		fb_t fb = {"/dev/fb0", 0, 0, 0, 0, NULL, 0};
+		struct fb fb = {"/dev/fb0", 0, 0, 0, 0, NULL, 0};
 		/* TODO: fail if more than one non-option arg is given. */
 		if (poptPeekArg(ctx) != NULL) {
 			fb.device = poptGetArg(ctx);
