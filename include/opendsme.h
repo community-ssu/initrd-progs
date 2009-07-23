@@ -19,6 +19,9 @@
 
 #define DEFAULT_DSME_PATH "/tmp/dsmesock"
 
-
-size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
-	const size_t bytes_read, const size_t bytes_skip, const int mode);
+ssize_t get_from_dsme(const char *path,
+		const void *request,
+		const size_t bytes_send,
+		void *buf,
+		const size_t bytes_read,
+		const size_t bytes_skip);
