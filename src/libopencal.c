@@ -37,8 +37,12 @@ static size_t skip_and_read(const int fd, void *buf, const size_t bytes_read,
 	return ret - bytes_skip;
 }
 
-size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
-		const size_t bytes_read, const size_t bytes_skip, const int select_mode) {
+size_t get_from_mtd(const char *path,
+		void *buf,
+		const off_t seek_to,
+		const size_t bytes_read,
+		const size_t bytes_skip,
+		const int select_mode) {
 	ssize_t ret;
 	int fd;
 	if ((fd = open(path, O_RDONLY)) == -1) {
@@ -46,8 +50,8 @@ size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
 		perror(NULL);
 		return -1;
 	}
-	/* Sadly, strace doesn't know mtd ioctl codes and misinterprets them as mtrr codes.
-		Here's mapping table
+	/* Sadly, strace doesn't know mtd ioctl codes and misinterprets them
+		as mtrr codes. Here's mapping table
 		(first column is real code, second - what strace thinks it is):
 		MEMGETINFO				MTRRIOC_SET_ENTRY
 		MEMERASE					MTRRIOC_DEL_ENTRY
@@ -86,8 +90,12 @@ size_t get_from_mtd(const char *path, void *buf, const off_t seek_to,
 	return ret;
 }
 
-ssize_t get_from_dsme(const char *path, const void *request, const size_t bytes_send,
-		void *buf, const size_t bytes_read, const size_t bytes_skip) {
+ssize_t get_from_dsme(const char *path,
+		const void *request,
+		const size_t bytes_send,
+		void *buf,
+		const size_t bytes_read,
+		const size_t bytes_skip) {
 	int fd;
 	ssize_t ret;
 	struct sockaddr_un sockaddr;

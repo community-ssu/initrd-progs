@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <fcntl.h>
+#include "opendsme.h"
 #include "opencal.h"
 #include "config.h"
 
@@ -248,7 +249,7 @@ int main(const int argc, const char **argv) {
 	poptSetOtherOptionHelp(ctx, "[OPTION...] [PATH]\n"
 		"  PATH\tSpecifies where path to mtd partition if -d option is used or to dsme"
 		" server socket path otherwise. If no value is specified, "
-		DEFAULT_DIRECT_ACCESS_PATH  " is used in direct access mode and "
+		CAL_DEFAULT_PATH  " is used in direct access mode and "
 		DEFAULT_DSME_PATH " in dsme.");
 	const int rc = poptGetNextOpt(ctx);
 	int ret;
@@ -271,7 +272,7 @@ int main(const int argc, const char **argv) {
 		if (poptPeekArg(ctx) != NULL) {
 			path = poptGetArg(ctx);
 		} else if (direct) {
-			path = DEFAULT_DIRECT_ACCESS_PATH;
+			path = CAL_DEFAULT_PATH;
 		} else {
 			path = DEFAULT_DSME_PATH;
 		}
