@@ -38,12 +38,12 @@ struct conf_block_header {
 	/* Header version. Set to CAL_HEADER_VERSION. */
 	uint8_t hdr_version;
 	/* Block version. If there are multiple blocks with same name,
-		only block with highest version number is concidered active.
+		only block with highest version number is considered active.
 		Block version starts with 0.  */
 	uint8_t block_version;
 	/* Some mysterious flags. Seen values: 0, 1, 1 << 2, 1 << 3 */
 	uint16_t flags;
-	/* Block name. TODO: traling/leading zerofill? */
+	/* Block name. TODO: trailing/leading zerofill? */
 	char name[16];
 	/* Data length. */
 	uint32_t len;
