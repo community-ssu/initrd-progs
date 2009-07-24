@@ -29,36 +29,53 @@ typedef struct cal_t * cal;
 
 /*
 	Initializes CAL structure.
-	If lock_file is not set, then CAL_DEFAULT_LOCK_FILE is used.
 
-	Acquires lock, populates CAL structure with data from CAL storage.
-
-	N.B. You MUST call cal_destroy when you finished working with CAL structure.
-
-	@param path mtd device path.
-	@return 0 on success, -1 on error.
+	N.B. You MUST call cal_destroy when you finished working with
+	CAL structure.
+	@return 0 on success, -1 on error. Sets errno.
 */
-cal cal_init(char *path);
+int cal_init(
+	/* Pointer to pointer that'll be set to newly created CAL
+		structure. Pointer is set only on successful execution. */
+	cal *cal,
+	/* mtd device path */
+	char *path);
 
+/*
+	Reads CAL block data.
+	@return 0 on success, -1 on error. Sets errno.
+*/
 int cal_read_block(
 	cal c,
+	/* Block name */
 	const char *name,
-	void **ptr,
-	unsigned long *len,
-	unsigned long flags);
+	/* Pointer to void * that'll be set to block data */
+	void **data,
+	/* Pointer to variable that'll be set to block data length. */
+	uint32_t *len,
+	/* Some mysterious flags. Not used currently. */
+	uint16_t flags);
 
+/*
+	Writes CAL block data.
+	@return 0 on success, -1 on error. Sets errno.
+*/
 int cal_write_block(
-	cal c,
+	cal cal,
+	/* Block name */
 	const char *name,
+	/* Pointer to block data */
 	const void *ptr,
-	long unsigned int d,
-	long unsigned int e);
+	/* Data length */
+	uint32_t len,
+	/* Some mysterious flags. Not used currently. */
+	uint16_t flags);
 
 /*
 	Closed/frees/cleanups after cal_init.
-	It is ok to pass uninitialized CAL structure (and even NULL).
+	It is ok to pass NULL.
 */
-void cal_destroy(cal c);
+void cal_destroy(cal cal);
 
 /*
 	Naive fixed offset based CAL access.

@@ -28,6 +28,7 @@
 
 #define CAL_BLOCK_HEADER_MAGIC "ConF"
 #define CAL_HEADER_VERSION 2
+/* TODO: Remove it. Use "/tmp/cal.<devicename>.lock" */
 #define CAL_DEFAULT_LOCK_FILE "/tmp/cal.mtd1.lock"
 
 /* On-disk CAL block header structure. */
@@ -40,7 +41,7 @@ struct conf_block_header {
 		only block with highest version number is concidered active.
 		Block version starts with 0.  */
 	uint8_t block_version;
-	/* Some mysterious flags. Seen values: 1, 1 << 2, 1 << 3 */
+	/* Some mysterious flags. Seen values: 0, 1, 1 << 2, 1 << 3 */
 	uint16_t flags;
 	/* Block name. TODO: traling/leading zerofill? */
 	char name[16];
