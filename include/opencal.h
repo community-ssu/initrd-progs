@@ -35,18 +35,18 @@ typedef struct cal_t * cal;
 	@return 0 on success, -1 on error. Sets errno.
 */
 int cal_init(
-	/* Pointer to pointer that'll be set to newly created CAL
+	/* Pointer to CAL pointer that'll be set to newly created CAL
 		structure. Pointer is set only on successful execution. */
 	cal *cal,
 	/* mtd device path */
-	char *path);
+	const char *path);
 
 /*
 	Reads CAL block data.
 	@return 0 on success, -1 on error. Sets errno.
 */
 int cal_read_block(
-	cal c,
+	cal cal,
 	/* Block name */
 	const char *name,
 	/* Pointer to void * that'll be set to block data */
@@ -65,11 +65,11 @@ int cal_write_block(
 	/* Block name */
 	const char *name,
 	/* Pointer to block data */
-	const void *ptr,
+	const void *data,
 	/* Data length */
-	uint32_t len,
+	const uint32_t len,
 	/* Some mysterious flags. Not used currently. */
-	uint16_t flags);
+	const uint16_t flags);
 
 /*
 	Closed/frees/cleanups after cal_init.
