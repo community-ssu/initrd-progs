@@ -17,6 +17,9 @@
 	along with opendsme.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef OPENCAL_H
+#define OPENCAL_H
+
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -89,3 +92,5 @@ size_t get_from_mtd(
 	const size_t bytes_read,
 	const size_t bytes_skip,
 	const int mode);
+
+#endif /* OPENCAL_H */

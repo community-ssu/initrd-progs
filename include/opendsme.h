@@ -17,11 +17,16 @@
 	along with opendsme.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef OPENDSME_H
+#define OPENDSME_H
+
 #define DEFAULT_DSME_PATH "/tmp/dsmesock"
 
 ssize_t get_from_dsme(const char *path,
-		const void *request,
-		const size_t bytes_send,
-		void *buf,
-		const size_t bytes_read,
-		const size_t bytes_skip);
+	const void *request,
+	const size_t bytes_send,
+	void *buf,
+	const size_t bytes_read,
+	const size_t bytes_skip);
+
+#endif /* OPENDSME_H */
