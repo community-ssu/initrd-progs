@@ -165,8 +165,9 @@ int cal_init(cal *ptr, const char *path) {
 
 	/* TODO: make configurable? */
 	const char *lockfile_format = "/tmp/cal.%s.lock";
+	assert(path != NULL);
 	char *devicename = rindex(path, '/');
-	assert(strlen(devicename) > 1);
+	assert(devicename != NULL && strlen(devicename) > 1);
 	devicename = &devicename[1];
 	const size_t lockfile_len = strlen(lockfile_format) - 2 + strlen(devicename);
 	char *lock = malloc(lockfile_len);
