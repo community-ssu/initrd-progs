@@ -105,7 +105,7 @@ struct cal_s {
 	uint8_t **page_cache;
 };
 
-static inline off_t align_to_block_size(const off_t offset, const int bs) {
+static inline off_t align_to_next_block(const off_t offset, const int bs) {
 	return (offset & (bs - 1)) ? ((offset & ~(bs - 1)) + bs) : offset;
 }
 
@@ -126,7 +126,7 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 			/* Block should be empty. TODO: check bytes for 0xFF? */
 			free(block);
 			/* Align to write boundary after empty block */
-			offset = align_to_block_size(++offset, c->mtd_info.writesize);
+			offset = align_to_next_block(++offset, c->mtd_info.writesize);
 		} else {
 			/*
 				TODO: check header version. Bail out if it's unknown
@@ -143,10 +143,10 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 			prev = block;
 			if (block->hdr.flags & CAL_BLOCK_FLAG_VARIABLE_LENGTH) {
 				/* We need to align reads to word boundary. */
-				offset = align_to_block_size(offset + hdr_len + block->hdr.len,
+				offset = align_to_next_block(offset + hdr_len + block->hdr.len,
 					sizeof(int));
 			} else {
-				offset = align_to_block_size(++offset, c->mtd_info.writesize);
+				offset = align_to_next_block(++offset, c->mtd_info.writesize);
 			}
 		}
 	}
