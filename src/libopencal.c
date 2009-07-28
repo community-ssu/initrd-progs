@@ -167,6 +167,7 @@ int cal_init(cal *ptr, const char *path) {
 	if (errno == ENOMEM) {
 		goto cleanup;
 	}
+	/* TODO: check return value */
 	sprintf(lock, lockfile_format, devicename);
 	const int lock_fd = open(lock, O_WRONLY|O_CREAT|O_EXCL, 0666);
 	if (lock_fd == -1) {
@@ -175,6 +176,7 @@ int cal_init(cal *ptr, const char *path) {
 		free(lock);
 		goto cleanup;
 	}
+	/* TODO: check return value */
 	close(lock_fd);
 	c->lock_file = lock;
 
