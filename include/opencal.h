@@ -30,7 +30,7 @@
 /* Pointer to CAL internal structure. */
 typedef struct cal_s * cal;
 
-/*
+/**
 	Initializes CAL structure.
 
 	N.B. You MUST call cal_destroy when you finished working with
@@ -44,7 +44,7 @@ int cal_init(
 	/* mtd device path */
 	const char *path);
 
-/*
+/**
 	Reads CAL block data.
 	@return 0 on success, -1 on error.
 */
@@ -59,7 +59,7 @@ int cal_read_block(
 	/* Some mysterious flags. Not used currently. */
 	const uint16_t flags);
 
-/*
+/**
 	Writes CAL block data.
 	@return 0 on success, -1 on error.
 */
@@ -74,10 +74,10 @@ int cal_write_block(
 	/* Some mysterious flags. Not used currently. */
 	const uint16_t flags);
 
-/* Closed/frees/cleanups after cal_init. */
+/** Closed/frees/cleanups after cal_init. */
 void cal_destroy(cal cal);
 
-/*
+/**
 	Naive fixed offset based CAL access.
 	Do not EVER use it, it'll be deleted as soon as
 	stuff above will start to work.

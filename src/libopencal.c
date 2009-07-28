@@ -105,11 +105,27 @@ struct cal_s {
 	uint8_t **page_cache;
 };
 
+/**
+	Aligns offset to next block.
+	Doesn't change it if offset is already aligned.
+	@offset current offset
+	@bs block size to use for alignment
+	@return block-aligned offset
+*/
 static inline off_t align_to_next_block(const off_t offset, const int bs) {
 	return (offset & (bs - 1)) ? ((offset & ~(bs - 1)) + bs) : offset;
 }
 
-static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
+/**
+	Scans CAL storage and fills block list with found blocks.
+	@c pointer to CAL struct.
+	@select_mode MTD select mode. See OTPSELECT ioctl.
+	@list block list to add found blocks to.
+*/
+static void scan_blocks(
+		const cal c,
+		const int select_mode,
+		struct conf_block **list) {
 	/* TODO: handle errors */
 	ioctl(c->mtd_fd, OTPSELECT, &select_mode);
 	const size_t hdr_len = sizeof(struct conf_block_header);
@@ -121,8 +137,9 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 		lseek(c->mtd_fd, offset, SEEK_SET);
 		/* TODO: handle errors */
 		read(c->mtd_fd, &block->hdr, hdr_len);
+		const size_t magic_len = strlen(CAL_BLOCK_HEADER_MAGIC);
 		/* TODO: is it safe to just skip such blocks? */
-		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, strlen(CAL_BLOCK_HEADER_MAGIC)) != 0) {
+		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, magic_len) != 0) {
 			/* Block should be empty. TODO: check bytes for 0xFF? */
 			free(block);
 			/* Align to write boundary after empty block */
@@ -134,7 +151,8 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 			*/
 			/* TODO: remove debug output */
 			printf("%s v.%d len:%u flags:%u @ %lu\n",
-				block->hdr.name, block->hdr.block_version, block->hdr.len, block->hdr.flags, offset);
+				block->hdr.name, block->hdr.block_version, block->hdr.len,
+				block->hdr.flags, offset);
 			block->addr = offset;
 			if (prev == NULL) {
 				*list = block;
