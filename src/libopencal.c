@@ -33,7 +33,7 @@
 /* TODO: can this be calculated? */
 #define CAL_BLOCK_SIZE 2048
 
-#define CAL_BLOCK_VARIABLE_LENGTH 1 << 1
+#define CAL_BLOCK_FLAG_VARIABLE_LENGTH 1 << 0
 
 /* On-disk CAL block header structure. */
 struct conf_block_header {
@@ -107,7 +107,7 @@ struct cal_s {
 	uint8_t **page_cache;
 };
 
-static inline off_t align_to_block_size(const off_t offset, const size_t bs) {
+static inline off_t align_to_block_size(const off_t offset, const int bs) {
 	return (offset & (bs - 1)) ? ((offset & ~(bs - 1)) + bs) : offset;
 }
 
@@ -129,16 +129,15 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, strlen(CAL_BLOCK_HEADER_MAGIC)) != 0) {
 			/* Block should be empty. TODO: check bytes for 0xFF? */
 			free(block);
-			++offset;
 			/* Align to CAL_BLOCK_SIZE boundary after empty block */
-			offset = align_to_block_size(offset, CAL_BLOCK_SIZE);
+			offset = align_to_block_size(++offset, CAL_BLOCK_SIZE);
 		} else {
 			/*
 				TODO: check header version. Bail out if it's unknown
 				so we don't destroy anything.
 			*/
 			/* TODO: remove debug output */
-			printf("%s v.%d len:%u flags:%u @ %d\n", block->hdr.name, block->hdr.block_version, block->hdr.len, block->hdr.flags, offset);
+			printf("%s v.%d len:%u flags:%u @ %lu\n", block->hdr.name, block->hdr.block_version, block->hdr.len, block->hdr.flags, offset);
 			block->addr = offset;
 			if (prev == NULL) {
 				*list = block;
@@ -146,12 +145,12 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 				prev->next = block;
 			}
 			prev = block;
-			if (block->hdr.flags & CAL_BLOCK_VARIABLE_LENGTH) {
-				offset += hdr_len + block->hdr.len;
+			if (block->hdr.flags & CAL_BLOCK_FLAG_VARIABLE_LENGTH) {
 				/* We need to align reads to word boundary. */
-				offset = align_to_block_size(offset, sizeof(int));
+				offset = align_to_block_size(offset + hdr_len + block->hdr.len,
+					sizeof(int));
 			} else {
-				offset += CAL_BLOCK_SIZE;
+				offset = align_to_block_size(++offset, CAL_BLOCK_SIZE);
 			}
 		}
 	}
