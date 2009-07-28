@@ -30,8 +30,6 @@
 
 #define CAL_BLOCK_HEADER_MAGIC "ConF"
 #define CAL_HEADER_VERSION 2
-/* TODO: can this be calculated? */
-#define CAL_BLOCK_SIZE 2048
 
 #define CAL_BLOCK_FLAG_VARIABLE_LENGTH 1 << 0
 
@@ -49,7 +47,7 @@ struct conf_block_header {
 	uint8_t block_version;
 	/* Some mysterious flags. Seen values: 0, 1, 1 << 2, 1 << 3 */
 	uint16_t flags;
-	/* Block name. TODO: trailing/leading zerofill? */
+	/* Block name. */
 	char name[16];
 	/* Data length. */
 	uint32_t len;
@@ -129,8 +127,8 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, strlen(CAL_BLOCK_HEADER_MAGIC)) != 0) {
 			/* Block should be empty. TODO: check bytes for 0xFF? */
 			free(block);
-			/* Align to CAL_BLOCK_SIZE boundary after empty block */
-			offset = align_to_block_size(++offset, CAL_BLOCK_SIZE);
+			/* Align to write boundary after empty block */
+			offset = align_to_block_size(++offset, c->mtd_info.writesize);
 		} else {
 			/*
 				TODO: check header version. Bail out if it's unknown
@@ -150,7 +148,7 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 				offset = align_to_block_size(offset + hdr_len + block->hdr.len,
 					sizeof(int));
 			} else {
-				offset = align_to_block_size(++offset, CAL_BLOCK_SIZE);
+				offset = align_to_block_size(++offset, c->mtd_info.writesize);
 			}
 		}
 	}
