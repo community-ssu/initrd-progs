@@ -22,6 +22,17 @@
 #include "config.h"
 
 int main(void) {
-	puts("not implemented yet");
-	return 1;
+	cal c;
+	if (cal_init(&c, CAL_DEFAULT_PATH)) {
+		return -1;
+	}
+	void *data;
+	size_t len;
+	if (cal_read_block(c, "r&d_mode", &data, &len, 0)) {
+		cal_destroy(c);
+		return -1;
+	}
+	write(STDOUT_FILENO, data, len);
+	cal_destroy(c);
+	return 0;
 }

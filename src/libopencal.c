@@ -24,12 +24,16 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <strings.h>
 #include "opencal.h"
 
 #define CAL_BLOCK_HEADER_MAGIC "ConF"
 #define CAL_HEADER_VERSION 2
-/* TODO: Remove it. Use "/tmp/cal.<devicename>.lock" */
-#define CAL_DEFAULT_LOCK_FILE "/tmp/cal.mtd1.lock"
+/* TODO: can this be calculated? */
+#define CAL_BLOCK_SIZE 2048
+
+#define CAL_BLOCK_VARIABLE_LENGTH 1 << 1
 
 /* On-disk CAL block header structure. */
 struct conf_block_header {
@@ -37,9 +41,11 @@ struct conf_block_header {
 	uint32_t magic;
 	/* Header version. Set to CAL_HEADER_VERSION. */
 	uint8_t hdr_version;
-	/* Block version. If there are multiple blocks with same name,
+	/*
+		Block version. If there are multiple blocks with same name,
 		only block with highest version number is considered active.
-		Block version starts with 0.  */
+		Block version starts with 0.
+	*/
 	uint8_t block_version;
 	/* Some mysterious flags. Seen values: 0, 1, 1 << 2, 1 << 3 */
 	uint16_t flags;
@@ -55,8 +61,8 @@ struct conf_block_header {
 
 /* Structure describing CAL block. */
 struct conf_block {
-	/* TODO: Data/header on-disk offset? */
-	long unsigned int addr;
+	/* Header on-disk offset */
+	off_t addr;
 	/* Block header. */
 	struct conf_block_header hdr;
 	/* Block data. */
@@ -84,11 +90,12 @@ struct cal_area {
 struct cal_s {
 	/* File descriptor. */
 	int mtd_fd;
-	/* Path to lock file. Use CAL_DEFAULT_LOCK_FILE. */
+	/* Path to lock file. Set only when lock was sucessfully acquired */
 	char *lock_file;
+	/* MTD partition info. See <mtd/mtd-abi.h> */
 	struct mtd_info_user mtd_info;
-	unsigned int page_size;
-	unsigned int eb_size;
+	size_t page_size;
+	size_t eb_size;
 	struct conf_block *main_block_list;
 	struct conf_block *user_block_list;
 	struct conf_block *wp_block_list;
@@ -99,6 +106,146 @@ struct cal_s {
 	int has_wp;
 	uint8_t **page_cache;
 };
+
+static void read_blocks(cal c, int select_mode, struct conf_block **list) {
+	/* TODO: handle errors */
+	ioctl(c->mtd_fd, OTPSELECT, &select_mode);
+	const size_t hdr_len = sizeof(struct conf_block_header);
+	struct conf_block *prev = NULL;
+	for (off_t offset = 0; offset < c->mtd_info.size;) {
+		/* TODO: handle errors */
+		struct conf_block *block = malloc(sizeof(struct conf_block));
+		/* TODO: handle errors */
+		lseek(c->mtd_fd, offset, SEEK_SET);
+		/* TODO: handle errors */
+		read(c->mtd_fd, &block->hdr, hdr_len);
+		/* TODO: is it safe to just skip such blocks? */
+		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, strlen(CAL_BLOCK_HEADER_MAGIC)) != 0) {
+			/* Block should be empty. TODO: check bytes for 0xFF? */
+			free(block);
+			++offset;
+			/* Align to CAL_BLOCK_SIZE boundary after empty block */
+			offset = (offset & (CAL_BLOCK_SIZE - 1)) ? ((offset & ~(CAL_BLOCK_SIZE - 1)) + CAL_BLOCK_SIZE) : offset;
+		} else {
+			/*
+				TODO: check header version. Bail out if it's unknown
+				so we don't destroy anything.
+			*/
+			/* TODO: remove debug output */
+			printf("%s v.%d len:%u flags:%u @ %u\n", block->hdr.name, block->hdr.block_version, block->hdr.len, block->hdr.flags, offset);
+			block->addr = offset;
+			if (prev == NULL) {
+				*list = block;
+			} else {
+				prev->next = block;
+			}
+			prev = block;
+			if (block->hdr.flags & CAL_BLOCK_VARIABLE_LENGTH) {
+				const size_t bs = hdr_len + block->hdr.len;
+				/* We need to align reads to 4 byte boundary. Dunno why 4. */
+				offset += (bs & 3) ? ((bs & ~3) + 4) : bs;
+			} else {
+				offset += CAL_BLOCK_SIZE;
+			}
+		}
+	}
+}
+
+int cal_init(cal *ptr, const char *path) {
+	cal c = malloc(sizeof(struct cal_s));
+	if (errno == ENOMEM) {
+		goto cleanup;
+	}
+
+	/* TODO: make configurable? */
+	const char *lockfile_format = "/tmp/cal.%s.lock";
+	char *devicename = rindex(path, '/');
+	assert(strlen(devicename) > 1);
+	devicename = &devicename[1];
+	const size_t lockfile_len = strlen(lockfile_format) - 2 + strlen(devicename);
+	char *lock = malloc(lockfile_len);
+	if (errno == ENOMEM) {
+		goto cleanup;
+	}
+	sprintf(lock, lockfile_format, devicename);
+	const int lock_fd = open(lock, O_WRONLY|O_CREAT|O_EXCL, 0666);
+	if (lock_fd == -1) {
+		fprintf(stderr, "Could not aquire lock file %s: ", lock);
+		perror(NULL);
+		free(lock);
+		goto cleanup;
+	}
+	close(lock_fd);
+	c->lock_file = lock;
+
+	if ((c->mtd_fd = open(path, O_RDWR)) == -1) {
+		fprintf(stderr, "Could not open CAL %s: ", path);
+		perror(NULL);
+		goto cleanup;
+	}
+	if (ioctl(c->mtd_fd, MEMGETINFO, &c->mtd_info) == -1) {
+		perror("ioctl(MEMGETINFO) failed");
+		goto cleanup;
+	}
+
+	/* TODO: remove debug output */
+	puts("normal:");
+	read_blocks(c, MTD_MODE_NORMAL, &c->main_block_list);
+	/* TODO: remove debug output */
+	puts("user:");
+	read_blocks(c, MTD_MODE_OTP_USER, &c->user_block_list);
+	/* TODO: remove debug output */
+	puts("factory:");
+	read_blocks(c, MTD_MODE_OTP_FACTORY, &c->wp_block_list);
+
+	if (0) {
+cleanup:
+		cal_destroy(c);
+		return -1;
+	}
+	*ptr = c;
+	return 0;
+}
+
+int cal_read_block(
+		cal c,
+		const char *name,
+		void **data,
+		uint32_t *len,
+		const uint16_t flags) {
+	/* TODO: implement this */
+	return -1;
+}
+
+static void free_blocks(struct conf_block *block) {
+	while (block) {
+		struct conf_block *prev = block;
+		block = block->next;
+		free(prev);
+	}
+}
+
+void cal_destroy(cal c) {
+	if (c) {
+		free_blocks(c->main_block_list);
+		free_blocks(c->user_block_list);
+		free_blocks(c->wp_block_list);
+		if (c->mtd_fd) {
+			close(c->mtd_fd);
+		}
+		if (c->lock_file) {
+			if (unlink(c->lock_file)) {
+				fprintf(stderr, "Could not remove lock file %s!"
+					" Please, remove it manually: ", c->lock_file);
+				perror(NULL);
+			}
+			free(c->lock_file);
+		}
+		free(c);
+	}
+}
+
+/* Old stuff below, will be removed soon */
 
 static size_t skip_and_read(const int fd, void *buf, const size_t bytes_read,
 		const size_t bytes_skip) {

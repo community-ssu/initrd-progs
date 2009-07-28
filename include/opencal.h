@@ -28,14 +28,14 @@
 #define CAL_DEFAULT_PATH "/dev/mtd1"
 
 /* Pointer to CAL internal structure. */
-typedef struct cal_t * cal;
+typedef struct cal_s * cal;
 
 /*
 	Initializes CAL structure.
 
 	N.B. You MUST call cal_destroy when you finished working with
 	CAL structure.
-	@return 0 on success, -1 on error. Sets errno.
+	@return 0 on success, -1 on error.
 */
 int cal_init(
 	/* Pointer to CAL pointer that'll be set to newly created CAL
@@ -46,7 +46,7 @@ int cal_init(
 
 /*
 	Reads CAL block data.
-	@return 0 on success, -1 on error. Sets errno.
+	@return 0 on success, -1 on error.
 */
 int cal_read_block(
 	cal cal,
@@ -57,11 +57,11 @@ int cal_read_block(
 	/* Pointer to variable that'll be set to block data length. */
 	uint32_t *len,
 	/* Some mysterious flags. Not used currently. */
-	uint16_t flags);
+	const uint16_t flags);
 
 /*
 	Writes CAL block data.
-	@return 0 on success, -1 on error. Sets errno.
+	@return 0 on success, -1 on error.
 */
 int cal_write_block(
 	cal cal,
@@ -74,10 +74,7 @@ int cal_write_block(
 	/* Some mysterious flags. Not used currently. */
 	const uint16_t flags);
 
-/*
-	Closed/frees/cleanups after cal_init.
-	It is ok to pass NULL.
-*/
+/* Closed/frees/cleanups after cal_init. */
 void cal_destroy(cal cal);
 
 /*
