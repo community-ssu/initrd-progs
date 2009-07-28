@@ -133,7 +133,8 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 				so we don't destroy anything.
 			*/
 			/* TODO: remove debug output */
-			printf("%s v.%d len:%u flags:%u @ %lu\n", block->hdr.name, block->hdr.block_version, block->hdr.len, block->hdr.flags, offset);
+			printf("%s v.%d len:%u flags:%u @ %lu\n",
+				block->hdr.name, block->hdr.block_version, block->hdr.len, block->hdr.flags, offset);
 			block->addr = offset;
 			if (prev == NULL) {
 				*list = block;
