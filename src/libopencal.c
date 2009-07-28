@@ -107,7 +107,11 @@ struct cal_s {
 	uint8_t **page_cache;
 };
 
-static void read_blocks(cal c, int select_mode, struct conf_block **list) {
+static inline off_t align_to_block_size(const off_t offset, const size_t bs) {
+	return (offset & (bs - 1)) ? ((offset & ~(bs - 1)) + bs) : offset;
+}
+
+static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 	/* TODO: handle errors */
 	ioctl(c->mtd_fd, OTPSELECT, &select_mode);
 	const size_t hdr_len = sizeof(struct conf_block_header);
@@ -127,14 +131,14 @@ static void read_blocks(cal c, int select_mode, struct conf_block **list) {
 			free(block);
 			++offset;
 			/* Align to CAL_BLOCK_SIZE boundary after empty block */
-			offset = (offset & (CAL_BLOCK_SIZE - 1)) ? ((offset & ~(CAL_BLOCK_SIZE - 1)) + CAL_BLOCK_SIZE) : offset;
+			offset = align_to_block_size(offset, CAL_BLOCK_SIZE);
 		} else {
 			/*
 				TODO: check header version. Bail out if it's unknown
 				so we don't destroy anything.
 			*/
 			/* TODO: remove debug output */
-			printf("%s v.%d len:%u flags:%u @ %u\n", block->hdr.name, block->hdr.block_version, block->hdr.len, block->hdr.flags, offset);
+			printf("%s v.%d len:%u flags:%u @ %d\n", block->hdr.name, block->hdr.block_version, block->hdr.len, block->hdr.flags, offset);
 			block->addr = offset;
 			if (prev == NULL) {
 				*list = block;
@@ -143,9 +147,9 @@ static void read_blocks(cal c, int select_mode, struct conf_block **list) {
 			}
 			prev = block;
 			if (block->hdr.flags & CAL_BLOCK_VARIABLE_LENGTH) {
-				const size_t bs = hdr_len + block->hdr.len;
-				/* We need to align reads to 4 byte boundary. Dunno why 4. */
-				offset += (bs & 3) ? ((bs & ~3) + 4) : bs;
+				offset += hdr_len + block->hdr.len;
+				/* We need to align reads to word boundary. */
+				offset = align_to_block_size(offset, sizeof(int));
 			} else {
 				offset += CAL_BLOCK_SIZE;
 			}
@@ -194,13 +198,13 @@ int cal_init(cal *ptr, const char *path) {
 
 	/* TODO: remove debug output */
 	puts("normal:");
-	read_blocks(c, MTD_MODE_NORMAL, &c->main_block_list);
+	scan_blocks(c, MTD_MODE_NORMAL, &c->main_block_list);
 	/* TODO: remove debug output */
 	puts("user:");
-	read_blocks(c, MTD_MODE_OTP_USER, &c->user_block_list);
+	scan_blocks(c, MTD_MODE_OTP_USER, &c->user_block_list);
 	/* TODO: remove debug output */
 	puts("factory:");
-	read_blocks(c, MTD_MODE_OTP_FACTORY, &c->wp_block_list);
+	scan_blocks(c, MTD_MODE_OTP_FACTORY, &c->wp_block_list);
 
 	if (0) {
 cleanup:
