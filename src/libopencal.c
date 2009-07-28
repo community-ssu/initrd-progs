@@ -114,9 +114,7 @@ static void scan_blocks(cal c, int select_mode, struct conf_block **list) {
 	ioctl(c->mtd_fd, OTPSELECT, &select_mode);
 	const size_t hdr_len = sizeof(struct conf_block_header);
 	struct conf_block *prev = NULL;
-	/* TODO: 'off_t < size_t' gives signed/unsigned comparison warning.
-		'size_t - off_t > 0' overflows. What is the proper way? */
-	for (off_t offset = 0; offset < c->mtd_info.size;) {
+	for (off_t offset = 0; (size_t)offset < c->mtd_info.size;) {
 		/* TODO: handle errors */
 		struct conf_block *block = malloc(sizeof(struct conf_block));
 		/* TODO: handle errors */
