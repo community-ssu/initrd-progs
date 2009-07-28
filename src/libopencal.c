@@ -172,6 +172,7 @@ static void scan_blocks(
 }
 
 int cal_init(cal *ptr, const char *path) {
+	assert(*ptr == NULL);
 	cal c = malloc(sizeof(struct cal_s));
 	if (errno == ENOMEM) {
 		goto cleanup;
