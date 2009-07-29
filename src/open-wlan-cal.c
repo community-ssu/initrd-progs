@@ -141,7 +141,6 @@ static void set_tx_curve(cal c) {
 	}
 }
 
-/* TX limits */
 static void set_tx_limits() {
 	/* TODO: UK tablets have a bit different value. I think there's a conditional switch
 		based on country code, because it doesn't have any additional input. */
@@ -164,8 +163,6 @@ static void set_tx_limits() {
 		/* 4 + 14 * 13 */
 		186));
 }
-
-/* RX tuned values */
 
 static void set_rx_values() {
 	print_start("Pushing RX tuned values...Using default values ");
