@@ -41,6 +41,8 @@
 */
 #define CAL_BLOCK_FLAG_VARIABLE_LENGTH 1 << 0
 
+#define CAL_HEADER_LEN sizeof(struct conf_block_header)
+
 /** On-disk CAL block header structure. */
 struct conf_block_header {
 	/* Magic header. Set to CAL_BLOCK_HEADER_MAGIC. */
@@ -139,7 +141,6 @@ static void scan_blocks(
 		struct conf_block **list) {
 	/* TODO: handle errors */
 	ioctl(c->mtd_fd, OTPSELECT, &select_mode);
-	const size_t hdr_len = sizeof(struct conf_block_header);
 	struct conf_block *prev = NULL;
 	for (off_t offset = 0; (size_t)offset < c->mtd_info.size;) {
 		/* TODO: handle errors */
@@ -147,7 +148,7 @@ static void scan_blocks(
 		/* TODO: handle errors */
 		lseek(c->mtd_fd, offset, SEEK_SET);
 		/* TODO: handle errors */
-		read(c->mtd_fd, &block->hdr, hdr_len);
+		read(c->mtd_fd, &block->hdr, CAL_HEADER_LEN);
 		const size_t magic_len = strlen(CAL_BLOCK_HEADER_MAGIC);
 		/* TODO: is it safe to just skip such blocks? */
 		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, magic_len) != 0) {
@@ -156,15 +157,11 @@ static void scan_blocks(
 			/* Align to write boundary after empty block */
 			offset = align_to_next_block(++offset, c->mtd_info.writesize);
 		} else {
+			block->addr = offset;
 			/*
 				TODO: check header version. Bail out if it's unknown
 				so we don't destroy anything.
 			*/
-			/* TODO: remove debug output */
-			printf("%s v.%d len:%u flags:%u @ %lu\n",
-				block->hdr.name, block->hdr.block_version, block->hdr.len,
-				block->hdr.flags, offset);
-			block->addr = offset;
 			if (prev == NULL) {
 				*list = block;
 			} else {
@@ -173,7 +170,8 @@ static void scan_blocks(
 			prev = block;
 			if (block->hdr.flags & CAL_BLOCK_FLAG_VARIABLE_LENGTH) {
 				/* We need to align reads to word boundary. */
-				offset = align_to_next_block(offset + hdr_len + block->hdr.len,
+				offset = align_to_next_block(
+					offset + CAL_HEADER_LEN + block->hdr.len,
 					sizeof(int));
 			} else {
 				offset = align_to_next_block(++offset, c->mtd_info.writesize);
@@ -221,15 +219,8 @@ int cal_init(cal *ptr, const char *path) {
 		perror("ioctl(MEMGETINFO) failed");
 		goto cleanup;
 	}
-
-	/* TODO: remove debug output */
-	puts("normal:");
 	scan_blocks(c, MTD_MODE_NORMAL, &c->main_block_list);
-	/* TODO: remove debug output */
-	puts("user:");
 	scan_blocks(c, MTD_MODE_OTP_USER, &c->user_block_list);
-	/* TODO: remove debug output */
-	puts("factory:");
 	scan_blocks(c, MTD_MODE_OTP_FACTORY, &c->wp_block_list);
 
 	if (0) {
@@ -241,20 +232,60 @@ cleanup:
 	return 0;
 }
 
+static int read_block(
+		cal c,
+		const char *name,
+		void **data,
+		uint32_t *len,
+		struct conf_block *existing,
+		int select_mode) {
+	struct conf_block *block = NULL;
+	while (existing) {
+		if (strcmp(name, existing->hdr.name) == 0
+				&& (block == NULL
+				|| existing->hdr.block_version > block->hdr.block_version)) {
+			block = existing;
+		}
+		existing = existing->next;
+	}
+	if (block) {
+		if (block->data == NULL) {
+			/* TODO: handle errors */
+			ioctl(c->mtd_fd, OTPSELECT, &select_mode);
+			/* TODO: handle errors */
+			lseek(c->mtd_fd, block->addr + CAL_HEADER_LEN, SEEK_SET);
+			/* TODO: handle errors */
+			block->data = malloc(block->hdr.len);
+			/* TODO: handle errors */
+			read(c->mtd_fd, block->data, block->hdr.len);
+		}
+		*data = block->data;
+		*len = block->hdr.len;
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
 int cal_read_block(
 		cal c,
 		const char *name,
 		void **data,
 		uint32_t *len,
 		const uint16_t flags) {
-	/* TODO: implement this */
-	return -1;
+	if (read_block(c,name,data,len,c->main_block_list,MTD_MODE_NORMAL)
+		&& read_block(c,name,data,len,c->user_block_list,MTD_MODE_OTP_USER)
+		&& read_block(c,name,data,len,c->wp_block_list,MTD_MODE_OTP_FACTORY)) {
+		return -1;
+	}
+	return 0;
 }
 
 static void free_blocks(struct conf_block *block) {
 	while (block) {
 		struct conf_block *prev = block;
 		block = block->next;
+		free(prev->data);
 		free(prev);
 	}
 }

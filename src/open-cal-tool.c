@@ -17,6 +17,7 @@
 	along with opendsme.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <assert.h>
 #include <stdio.h>
 #include "opencal.h"
 #include "config.h"
@@ -31,8 +32,14 @@ int main(void) {
 	if (cal_read_block(c, "r&d_mode", &data, &len, 0)) {
 		cal_destroy(c);
 		return -1;
+	} else {
+		assert(len == 1);
+		if (((char *)data)[0]) {
+			puts("enabled");
+		} else {
+			puts("disabled");
+		}
 	}
-	write(STDOUT_FILENO, data, len);
 	cal_destroy(c);
 	return 0;
 }
