@@ -59,8 +59,7 @@ static void print_end(const ssize_t result) {
 /* Country */
 
 static void set_default_country() {
-	/* const char *default_country_req
-		= " \0\0\0\0\22\0\0pp_data\0\0\0\0\0\0\0\0\0\0\0\0\0\10\211\0\0"; */
+	/* Stored in pp_data block */
 	/* TODO: at least UK tablets have 0x10 instead of 0x30 */
 	/* The problem is that i can't figure out which byte they are using */
 	print_start("Pushing default country...");
