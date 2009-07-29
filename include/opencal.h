@@ -77,17 +77,4 @@ int cal_write_block(
 /** Closed/frees/cleanups after cal_init. */
 void cal_destroy(cal cal);
 
-/**
-	Naive fixed offset based CAL access.
-	Do not EVER use it, it'll be deleted as soon as
-	stuff above will start to work.
-	TODO: delete this.
-*/
-size_t get_from_mtd(
-	const char *path,
-	void *buf, const off_t seek_to,
-	const size_t bytes_read,
-	const size_t bytes_skip,
-	const int mode);
-
 #endif /* OPENCAL_H */

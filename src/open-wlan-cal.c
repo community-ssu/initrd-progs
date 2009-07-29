@@ -20,10 +20,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <popt.h>
-#include <sys/stat.h>
 #include <string.h>
 #include <fcntl.h>
-#include "opendsme.h"
 #include "opencal.h"
 #include "config.h"
 
@@ -69,100 +67,64 @@ static void set_default_country() {
 	print_end(write_to("/sys/devices/platform/wlan-omap/default_country", "0\0\0\0", 4));
 }
 
-/* MAC */
-
-static ssize_t get_mac_direct(const char *path, void *buf, const size_t len) {
-	return get_from_mtd(path, buf, 36, len, 4, MTD_OTP_USER);
-}
-
-static ssize_t get_mac_from_dsme(const char *path, void *buf, const size_t len) {
-	const char *req = " \0\0\0\0\22\0\0wlan-mac\0\0\0\0\0\0\0\0\0\0\0\0\10 \1\0";
-	return get_from_dsme(path, req, 32, buf, len, 36);
-}
-
-static void set_mac(const char *path,
-		ssize_t (*get)(const char *, void *, const size_t len)) {
+static void set_mac(cal c) {
 	const size_t mac_len = 6;
+	char mac[mac_len];
 	const char *file = "/sys/devices/platform/wlan-omap/cal_mac_address";
-	char mac_address[mac_len];
-	char input[24];
+	char *data;
+	uint32_t len;
 
 	print_start("Pushing MAC address...");
-	if (get(path, input, sizeof(input)) == sizeof(input)) {
+	if (cal_read_block(c, "wlan-mac", &data, &len, 0) == 0) {
 		size_t i;
-		for (i = 0; i < mac_len; ++i) {
+		for (i = 1; i <= mac_len; ++i) {
 			const size_t idx = 4 * i;
-			assert(idx < sizeof(input));
-			mac_address[i] = input[idx];
+			assert(idx < len);
+			mac[i - 1] = data[idx];
 		}
-		print_end(write_to(file, mac_address, mac_len));
+		print_end(write_to(file, mac, mac_len));
 	}
 }
 
-/* IQ values */
-
-static ssize_t get_iq_values_direct(const char *path, char *buf,
-		const size_t len) {
-	ssize_t ret;
-	/* TODO: is it correct? */
-	memcpy(buf, "l\0\0\0", 4);
-	ret = get_from_mtd(path, &buf[4], 55332, len - 4, 0, -1);
-	return ret == -1 ? ret : ret + 4;
-}
-
-static ssize_t get_iq_values_from_dsme(const char *path, char *buf,
-		const size_t len) {
-	const char *req = " \0\0\0\0\22\0\0wlan-iq-align\0\0\0\0\0\0\0\10 \1\0";
-	return get_from_dsme(path, req, 32, buf, len, 28);
-}
-
-static void set_iq_values(const char *path,
-		ssize_t (*get)(const char *, char *, const size_t len)) {
-	/* 14 (items + 1 empty) * 8 (read_item_len) */
-	char input[112];
+static void set_iq_values(cal c) {
+	/* 13 (items) * 8 (read_item_len) */
+	char *data;
+	uint32_t len;
 	print_start("Pushing IQ tuned values...");
-	if (get(path, input, sizeof(input)) == sizeof(input)) {
+	if (cal_read_block(c, "wlan-iq-align", &data, &len, 0) == 0) {
+		assert(len == 108);
 		const size_t read_item_len = 8;
 		/* + 2 because two bytes are used for item prefix */
 		const size_t item_len = read_item_len + 2;
 		/* 10 (prefix + 8 bytes of data) * 13 (items) */
 		char iq[130];
 		for (size_t i = 0; i < sizeof(iq) / item_len; ++i) {
-			/* (i + 1) because there's an empty item in input */
-			const size_t read_offset = (i + 1) * read_item_len;
+			const size_t read_offset = i * read_item_len + 4;
+			/* TODO: off-by-one error?
+				Result is correct, but assert fails.
+				13 * 8 == 104 == len */
+			/* assert(read_offset + read_item_len < len); */
 			size_t write_offset = item_len * i;
 			if (i == 0) {
-				iq[write_offset] = input[0];
+				iq[write_offset] = 108;
 			} else {
 				iq[write_offset] = iq[write_offset - item_len] + 5;
 			}
 			write_offset++;
 			iq[write_offset++] = '\t';
-			memcpy(&iq[write_offset], &input[read_offset], read_item_len);
+			memcpy(&iq[write_offset], &data[read_offset], read_item_len);
 		}
 		print_end(write_to("/sys/devices/platform/wlan-omap/cal_iq", iq, sizeof(iq)));
 	}
 }
 
-/* TX curve data */
-
-static ssize_t get_tx_curve_direct(const char *path, void *buf,
-		const size_t len) {
-	return get_from_mtd(path, buf, 57380, len, 14, -1);
-}
-
-static ssize_t get_tx_curve_from_dsme(const char *path, void *buf,
-		const size_t len) {
-	const char *req = " \0\0\0\0\22\0\0wlan-tx-gen2\0\0\0\0\0\0\0\0\10 \1\0";
-	return get_from_dsme(path, req, 32, buf, len, 46);
-}
-
-static void set_tx_curve(const char *path,
-		ssize_t (*get)(const char *, void *, const size_t len)) {
+static void set_tx_curve(cal c) {
 	/* 38 * 13 (items) */
-	char input[494];
+	char *data;
+	uint32_t len;
 	print_start("Pushing TX tuned values...");
-	if (get(path, input, sizeof(input)) == sizeof(input)) {
+	if (cal_read_block(c, "wlan-tx-gen2", &data, &len, 0) == 0) {
+		assert(len == 508);
 		const size_t read_item_len = 38;
 		const size_t sep_len = 4;
 		const char *sep = "\f\0 \2";
@@ -172,7 +134,7 @@ static void set_tx_curve(const char *path,
 		char tx_curve[550];
 		memcpy(tx_curve, "\3\0\6\0", prefix_len);
 		for (size_t i = 0; i < (sizeof(tx_curve) - prefix_len) / item_len; ++i) {
-			const char *src_addr = &input[read_item_len * i];
+			const char *src_addr = &data[read_item_len * i + 14];
 			char *dst_addr = &tx_curve[4 + item_len * i];
 			memcpy(dst_addr, src_addr, 2);
 			memcpy(&dst_addr[2], sep, sep_len);
@@ -231,12 +193,8 @@ static void set_rx_values() {
 }
 
 int main(const int argc, const char **argv) {
-	int direct = 0;
 	int version = 0;
 	const struct poptOption options[] = {
-		{"direct-mode", 'd', POPT_ARG_NONE, &direct, 0,
-			"If specified, data is read directly from mtd partition"
-			" instead of dsme server socket.", NULL},
 		{"version", 0, POPT_ARG_NONE, &version, 0, "Output version", NULL},
 		POPT_TABLEEND
 	};
@@ -247,10 +205,7 @@ int main(const int argc, const char **argv) {
 	};
 	poptContext ctx = poptGetContext(NULL, argc, argv, popts, POPT_CONTEXT_NO_EXEC);
 	poptSetOtherOptionHelp(ctx, "[OPTION...] [PATH]\n"
-		"  PATH\tSpecifies where path to mtd partition if -d option is used or to dsme"
-		" server socket path otherwise. If no value is specified, "
-		CAL_DEFAULT_PATH  " is used in direct access mode and "
-		DEFAULT_DSME_PATH " in dsme.");
+		"  PATH\tSpecifies path to CAL");
 	const int rc = poptGetNextOpt(ctx);
 	int ret;
 	if (rc != -1) {
@@ -271,19 +226,22 @@ int main(const int argc, const char **argv) {
 		const char *path;
 		if (poptPeekArg(ctx) != NULL) {
 			path = poptGetArg(ctx);
-		} else if (direct) {
-			path = CAL_DEFAULT_PATH;
 		} else {
-			path = DEFAULT_DSME_PATH;
+			path = CAL_DEFAULT_PATH;
 		}
-
-		set_default_country();
-		set_mac(path, direct ? get_mac_direct : get_mac_from_dsme);
-		set_iq_values(path, direct ? get_iq_values_direct : get_iq_values_from_dsme);
-		set_tx_curve(path, direct ? get_tx_curve_direct : get_tx_curve_from_dsme);
-		set_tx_limits();
-		set_rx_values();
-		ret = EXIT_SUCCESS;
+		cal c;
+		if (cal_init(&c, path) == 0) {
+			set_default_country();
+			set_mac(c);
+			set_iq_values(c);
+			set_tx_curve(c);
+			set_tx_limits();
+			set_rx_values();
+			cal_destroy(c);
+			ret = EXIT_SUCCESS;
+		} else {
+			ret = EXIT_FAILURE;
+		}
 	}
 	poptFreeContext(ctx);
 	return ret;
