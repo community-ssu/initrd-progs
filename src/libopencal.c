@@ -28,12 +28,20 @@
 #include <strings.h>
 #include "opencal.h"
 
+/* Magic sequence indicating block header start */
 #define CAL_BLOCK_HEADER_MAGIC "ConF"
+/* The only known CAL header version. */
 #define CAL_HEADER_VERSION 2
 
+/*
+	If block has this flag set then next block isn't writesize-aligned,
+	but is wordsize (32 bits) aligned and follows current block.
+	Empty block or block without this flag set returns alignment back to
+	writesize.
+*/
 #define CAL_BLOCK_FLAG_VARIABLE_LENGTH 1 << 0
 
-/* On-disk CAL block header structure. */
+/** On-disk CAL block header structure. */
 struct conf_block_header {
 	/* Magic header. Set to CAL_BLOCK_HEADER_MAGIC. */
 	uint32_t magic;
@@ -45,7 +53,10 @@ struct conf_block_header {
 		Block version starts with 0.
 	*/
 	uint8_t block_version;
-	/* Some mysterious flags. Seen values: 0, 1, 1 << 2, 1 << 3 */
+	/*
+		Some mysterious flags.
+		Possible values: 0, CAL_BLOCK_FLAG_VARIABLE_LENGTH, 1 << 3
+	*/
 	uint16_t flags;
 	/* Block name. */
 	char name[16];
@@ -57,7 +68,7 @@ struct conf_block_header {
 	uint32_t hdr_crc;
 };
 
-/* Structure describing CAL block. */
+/** Structure describing CAL block. */
 struct conf_block {
 	/* Header on-disk offset */
 	off_t addr;
@@ -69,7 +80,7 @@ struct conf_block {
 	struct conf_block *next;
 };
 
-/* TODO: what's this? */
+/** TODO: what's this? */
 struct cal_eb {
 	long unsigned int vaddr;
 	long unsigned int paddr;
@@ -84,7 +95,7 @@ struct cal_area {
 	long unsigned int private_data;
 };
 
-/* Structure describing CAL storage. */
+/** Structure describing CAL storage. */
 struct cal_s {
 	/* File descriptor. */
 	int mtd_fd;
@@ -175,6 +186,7 @@ int cal_init(cal *ptr, const char *path) {
 	assert(*ptr == NULL);
 	cal c = malloc(sizeof(struct cal_s));
 	if (errno == ENOMEM) {
+		perror("Could not allocate memory for CAL structure");
 		goto cleanup;
 	}
 
@@ -184,13 +196,12 @@ int cal_init(cal *ptr, const char *path) {
 	char *devicename = rindex(path, '/');
 	assert(devicename != NULL && strlen(devicename) > 1);
 	devicename = &devicename[1];
-	const size_t lockfile_len = strlen(lockfile_format) - 2 + strlen(devicename);
-	char *lock = malloc(lockfile_len);
+	const size_t lock_len = strlen(lockfile_format) - 2 + strlen(devicename);
+	char *lock = malloc(lock_len);
 	if (errno == ENOMEM) {
 		goto cleanup;
 	}
-	/* TODO: check return value */
-	sprintf(lock, lockfile_format, devicename);
+	assert(sprintf(lock, lockfile_format, devicename) == (int)lock_len);
 	const int lock_fd = open(lock, O_WRONLY|O_CREAT|O_EXCL, 0666);
 	if (lock_fd == -1) {
 		fprintf(stderr, "Could not aquire lock file %s: ", lock);
@@ -198,7 +209,6 @@ int cal_init(cal *ptr, const char *path) {
 		free(lock);
 		goto cleanup;
 	}
-	/* TODO: check return value */
 	close(lock_fd);
 	c->lock_file = lock;
 
