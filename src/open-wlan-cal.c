@@ -68,21 +68,18 @@ static void set_default_country() {
 }
 
 static void set_mac(cal c) {
-	const size_t mac_len = 6;
-	char mac[mac_len];
-	const char *file = "/sys/devices/platform/wlan-omap/cal_mac_address";
-	char *data;
+	char mac[6];
+	uint32_t *data;
 	uint32_t len;
 
 	print_start("Pushing MAC address...");
 	if (cal_read_block(c, "wlan-mac", &data, &len, 0) == 0) {
-		size_t i;
-		for (i = 1; i <= mac_len; ++i) {
-			const size_t idx = 4 * i;
-			assert(idx < len);
-			mac[i - 1] = data[idx];
+		assert(len == (sizeof(mac) + 1) * sizeof(uint32_t));
+		for (size_t i = 0; i < sizeof(mac); ++i) {
+			mac[i] = (char)data[i + 1];
 		}
-		print_end(write_to(file, mac, mac_len));
+		const char *file = "/sys/devices/platform/wlan-omap/cal_mac_address";
+		print_end(write_to(file, mac, sizeof(mac)));
 	}
 }
 
