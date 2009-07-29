@@ -124,7 +124,7 @@ struct cal_s {
 	@return block-aligned offset
 */
 static inline off_t align_to_next_block(const off_t offset, const int bs) {
-	return (offset & (bs - 1)) ? ((offset & ~(bs - 1)) + bs) : offset;
+	return (offset + bs - 1) & ~(bs - 1);
 }
 
 /**
