@@ -72,7 +72,7 @@ static void set_mac(cal c) {
 	uint32_t *data;
 	uint32_t len;
 	print_start("Pushing MAC address...");
-	if (cal_read_block(c, "wlan-mac", &data, &len, 0) == 0) {
+	if (cal_read_block(c, "wlan-mac", (void **)&data, &len, 0) == 0) {
 		assert(len == (mac_len + 1) * sizeof(uint32_t));
 		for (size_t i = 0; i < mac_len; ++i) {
 			mac[i] = data[i + 1];
@@ -87,7 +87,7 @@ static void set_iq_values(cal c) {
 	char *data;
 	uint32_t len;
 	print_start("Pushing IQ tuned values...");
-	if (cal_read_block(c, "wlan-iq-align", &data, &len, 0) == 0) {
+	if (cal_read_block(c, "wlan-iq-align", (void **)&data, &len, 0) == 0) {
 		assert(len == 108);
 		const size_t read_item_len = 8;
 		/* + 2 because two bytes are used for item prefix */
@@ -119,7 +119,7 @@ static void set_tx_curve(cal c) {
 	char *data;
 	uint32_t len;
 	print_start("Pushing TX tuned values...");
-	if (cal_read_block(c, "wlan-tx-gen2", &data, &len, 0) == 0) {
+	if (cal_read_block(c, "wlan-tx-gen2", (void **)&data, &len, 0) == 0) {
 		assert(len == 508);
 		const size_t read_item_len = 38;
 		const size_t sep_len = 4;
