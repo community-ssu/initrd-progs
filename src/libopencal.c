@@ -284,18 +284,17 @@ static int read_block(
 				perror("lseek");
 				return -1;
 			}
-			void *mem = malloc(block->hdr.len);
+			block->data = malloc(block->hdr.len);
 			if (errno == ENOMEM) {
 				perror("malloc");
 				return -1;
 			}
-			const ssize_t ret = read(c->mtd_fd, mem, block->hdr.len);
+			const ssize_t ret = read(c->mtd_fd, block->data, block->hdr.len);
 			if (ret == -1 || (size_t)ret != block->hdr.len) {
 				perror("read error");
-				free(mem);
+				free(block->data);
 				return -1;
 			}
-			block->data = mem;
 		}
 		*data = block->data;
 		*len = block->hdr.len;
