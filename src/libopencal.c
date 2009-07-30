@@ -268,6 +268,7 @@ static int read_block(
 	while (existing) {
 		if (strcmp(name, existing->hdr.name) == 0
 				&& (block == NULL
+				/* Only block with highest version is considered active */
 				|| existing->hdr.block_version > block->hdr.block_version)) {
 			block = existing;
 		}
@@ -275,14 +276,26 @@ static int read_block(
 	}
 	if (block) {
 		if (block->data == NULL) {
-			/* TODO: handle errors */
-			ioctl(c->mtd_fd, OTPSELECT, &select_mode);
-			/* TODO: handle errors */
-			lseek(c->mtd_fd, block->addr + CAL_HEADER_LEN, SEEK_SET);
-			/* TODO: handle errors */
-			block->data = malloc(block->hdr.len);
-			/* TODO: handle errors */
-			read(c->mtd_fd, block->data, block->hdr.len);
+			if (ioctl(c->mtd_fd, OTPSELECT, &select_mode)) {
+				perror("ioctl(OTPSELECT)");
+				return -1;
+			}
+			if (lseek(c->mtd_fd, block->addr + CAL_HEADER_LEN, SEEK_SET) == -1) {
+				perror("lseek");
+				return -1;
+			}
+			void *mem = malloc(block->hdr.len);
+			if (errno == ENOMEM) {
+				perror("malloc");
+				return -1;
+			}
+			const ssize_t ret = read(c->mtd_fd, mem, block->hdr.len);
+			if (ret == -1 || (size_t)ret != block->hdr.len) {
+				perror("read error");
+				free(mem);
+				return -1;
+			}
+			block->data = mem;
 		}
 		*data = block->data;
 		*len = block->hdr.len;
@@ -300,6 +313,7 @@ int cal_read_block(
 		const uint16_t flags) {
 	if (read_block(c,name,data,len,c->main_block_list,MTD_MODE_NORMAL) == 0) {
 		return 0;
+	}
 	if (read_block(c,name,data,len,c->user_block_list,MTD_MODE_OTP_USER) == 0) {
 		return 0;
 	}
