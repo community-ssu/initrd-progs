@@ -205,6 +205,7 @@ static void scan_blocks(
 	}
 }
 
+/** See cal_init in opencal.h for documentation. */
 int cal_init(cal *ptr, const char *path) {
 	assert(*ptr == NULL);
 	cal c = malloc(sizeof(struct cal_s));
@@ -316,6 +317,7 @@ static int read_block(
 	}
 }
 
+/** See cal_read_block in opencal.h for documentation. */
 int cal_read_block(
 		cal c,
 		const char *name,
@@ -327,6 +329,10 @@ int cal_read_block(
 		&& read_block(c,name,data,len,c->wp_block_list,MTD_MODE_OTP_FACTORY);
 }
 
+/**
+	Frees all blocks in given list.
+	@block pointer to first block in a list. Can be NULL.
+*/
 static void free_blocks(struct conf_block *block) {
 	while (block) {
 		struct conf_block *prev = block;
@@ -336,6 +342,7 @@ static void free_blocks(struct conf_block *block) {
 	}
 }
 
+/** See cal_destroy in opencal.h for documentation. */
 void cal_destroy(cal c) {
 	if (c) {
 		free_blocks(c->main_block_list);
