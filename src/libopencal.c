@@ -310,16 +310,9 @@ int cal_read_block(
 		void **data,
 		uint32_t *len,
 		const uint16_t flags) {
-	if (read_block(c,name,data,len,c->main_block_list,MTD_MODE_NORMAL) == 0) {
-		return 0;
-	}
-	if (read_block(c,name,data,len,c->user_block_list,MTD_MODE_OTP_USER) == 0) {
-		return 0;
-	}
-	if (read_block(c,name,data,len,c->wp_block_list,MTD_MODE_OTP_FACTORY) == 0) {
-		return 0;
-	}
-	return -1;
+	return read_block(c,name,data,len,c->main_block_list,MTD_MODE_NORMAL)
+		&& read_block(c,name,data,len,c->user_block_list,MTD_MODE_OTP_USER)
+		&& read_block(c,name,data,len,c->wp_block_list,MTD_MODE_OTP_FACTORY);
 }
 
 static void free_blocks(struct conf_block *block) {
