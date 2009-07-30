@@ -257,6 +257,18 @@ cleanup:
 	return 0;
 }
 
+/**
+	Searches for block with given name and reads its data if found.
+	TODO: return different values when nothing found or error occurred?
+	@c pointer to CAL structure.
+	@name block name
+	@data pointer to pointer that'll be set to read data.
+	@len pointer to var that'll be set to data length.
+	@existing pointer to list of blocks that'll be searched
+		for block with given name.
+	@select_mode MTD select mode (see OTPSELECT ioctl).
+	@return 0 if block was successfully found and read, otherwise -1.
+*/
 static int read_block(
 		cal c,
 		const char *name,
