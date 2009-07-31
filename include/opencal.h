@@ -39,7 +39,7 @@ cal cal_init(const char *path);
 
 /**
 	Reads CAL block data.
-	@return 0 on success, -1 on error.
+	@return 0 on success, other value on error (do not rely on -1).
 */
 int cal_read_block(
 	cal cal,
@@ -54,7 +54,7 @@ int cal_read_block(
 
 /**
 	Writes CAL block data.
-	@return 0 on success, -1 on error.
+	@return 0 on success, other value on error (do not rely on -1).
 */
 int cal_write_block(
 	cal cal,
