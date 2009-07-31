@@ -375,13 +375,14 @@ int main(const int argc, const char **argv) {
 		if (poptPeekArg(ctx) != NULL) {
 			fb.device = poptGetArg(ctx);
 		}
-		/*
-			TODO: this condition is wrong. We need to check that there's
-			only one action given.
-		*/
-		if (text && clear && version) {
+		const int action_sum = text + clear + version;
+		if (action_sum > 1) {
 			/* More than one action at a time */
 			fputs("Only one action can be given\n", stderr);
+			ret = EXIT_FAILURE;
+		} else if (action_sum == 0) {
+			/* No action given */
+			poptPrintHelp(ctx, stdout, 0);
 			ret = EXIT_FAILURE;
 		} else if (version) {
 			printf("fb_text2screen %s\n\n", VERSION);
@@ -391,10 +392,6 @@ int main(const int argc, const char **argv) {
 				"This is free software: you are free to change and redistribute it.\n"
 				"There is NO WARRANTY, to the extent permitted by law.");
 			ret = EXIT_SUCCESS;
-		} else if (!text && !clear && !version) {
-			/* No action given */
-			poptPrintHelp(ctx, stdout, 0);
-			ret = EXIT_FAILURE;
 		} else {
 			ret = fb_init(&fb);
 			if (ret == EXIT_SUCCESS) {
