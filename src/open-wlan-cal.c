@@ -100,7 +100,7 @@ static void set_iq_values(cal c) {
 			const size_t read_offset = i * read_item_len + 4;
 			/* TODO: off-by-one error?
 				Result is correct, but assert fails.
-				13 * 8 == 104 == len */
+				13 * 8 + 4 == 108 == len */
 			/* assert(read_offset + read_item_len < len); */
 			size_t write_offset = item_len * i;
 			if (i == 0) {
