@@ -307,7 +307,7 @@ static int fb_clear(struct fb *fb, const uint32_t color, int x, int y,
 	}
 	normalize(&x, &y, &width, &height);
 	if (x < 0 || x + width > fb->width || y < 0 || y + height > fb->height) {
-		fputs("Boundaries out of range", stderr);
+		fputs("Boundaries out of range\n", stderr);
 		return EXIT_FAILURE;
 	}
 	uint8_t *out = (uint8_t *)fb->mem + fb->depth * (fb->width * y + x);
@@ -381,7 +381,7 @@ int main(const int argc, const char **argv) {
 		*/
 		if (text && clear && version) {
 			/* More than one action at a time */
-			puts("Only one action can be given");
+			fputs("Only one action can be given\n", stderr);
 			ret = EXIT_FAILURE;
 		} else if (version) {
 			printf("fb_text2screen %s\n\n", VERSION);
