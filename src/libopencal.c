@@ -326,9 +326,25 @@ int cal_read_block(
 		void **data,
 		uint32_t *len,
 		const uint16_t flags) {
-	return read_block(c,name,data,len,c->main_block_list,MTD_MODE_NORMAL)
+	if (read_block(c,name,data,len,c->main_block_list,MTD_MODE_NORMAL)
 		&& read_block(c,name,data,len,c->user_block_list,MTD_MODE_OTP_USER)
-		&& read_block(c,name,data,len,c->wp_block_list,MTD_MODE_OTP_FACTORY);
+		&& read_block(c,name,data,len,c->wp_block_list,MTD_MODE_OTP_FACTORY)) {
+		fprintf(stderr, "No block %s found\n", name);
+		return -1;
+	} else {
+		return 0;
+	}
+}
+
+/** See cal_read_block in opencal.h for documentation. */
+int cal_write_block(
+		cal cal,
+		const char *name,
+		const void *data,
+		const uint32_t len,
+		const uint16_t flags) {
+	fputs("not implemented yet\n", stderr);
+	return -1;
 }
 
 /**
