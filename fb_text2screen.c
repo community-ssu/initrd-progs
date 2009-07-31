@@ -375,7 +375,7 @@ int main(const int argc, const char **argv) {
 		if (poptPeekArg(ctx) != NULL) {
 			fb.device = poptGetArg(ctx);
 		}
-		const int action_sum = text + clear + version;
+		const int action_sum = (text == NULL ? 0 : 1) + clear + version;
 		if (action_sum > 1) {
 			/* More than one action at a time */
 			fputs("Only one action can be given\n", stderr);
