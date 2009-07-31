@@ -25,18 +25,18 @@
 
 int main(void) {
 	cal c;
-	if (cal_init(&c, CAL_DEFAULT_PATH)) {
-		return -1;
-	}
-	void *data;
-	uint32_t len;
-	if (cal_read_block(c, "r&d_mode", &data, &len, 0)) {
+	if ((c = cal_init(CAL_DEFAULT_PATH)) != NULL) {
+		void *data;
+		uint32_t len;
+		if (cal_read_block(c, "r&d_mode", &data, &len, 0)) {
+			cal_destroy(c);
+			return -1;
+		} else {
+			assert(len == 1);
+			puts(((char *)data)[0] ? "enabled" : "disabled");
+		}
 		cal_destroy(c);
-		return -1;
-	} else {
-		assert(len == 1);
-		puts(((char *)data)[0] ? "enabled" : "disabled");
+		return 0;
 	}
-	cal_destroy(c);
-	return 0;
+	return -1;
 }

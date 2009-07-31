@@ -225,7 +225,7 @@ int main(const int argc, const char **argv) {
 			path = CAL_DEFAULT_PATH;
 		}
 		cal c;
-		if (cal_init(&c, path) == 0) {
+		if ((c = cal_init(path)) != NULL) {
 			set_default_country();
 			set_mac(c);
 			set_iq_values(c);

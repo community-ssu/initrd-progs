@@ -32,14 +32,10 @@ typedef struct cal_s * cal;
 
 	N.B. You MUST call cal_destroy when you finished working with
 	CAL structure.
-	@return 0 on success, -1 on error.
+	@path mtd device path
+	@return pointer to CAL structure on success, NULL on error.
 */
-int cal_init(
-	/* Pointer to CAL pointer that'll be set to newly created CAL
-		structure. Pointer is set only on successful execution. */
-	cal *cal,
-	/* mtd device path */
-	const char *path);
+cal cal_init(const char *path);
 
 /**
 	Reads CAL block data.

@@ -28,6 +28,8 @@
 #include <mtd/mtd-user.h>
 #include <strings.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "opencal.h"
 
 /*
@@ -208,8 +210,7 @@ static void scan_blocks(
 }
 
 /** See cal_init in opencal.h for documentation. */
-int cal_init(cal *ptr, const char *path) {
-	assert(*ptr == NULL);
+cal cal_init(const char *path) {
 	cal c = malloc(sizeof(struct cal_s));
 	if (errno == ENOMEM) {
 		perror("Could not allocate memory for CAL structure");
@@ -254,10 +255,9 @@ int cal_init(cal *ptr, const char *path) {
 	if (0) {
 cleanup:
 		cal_destroy(c);
-		return -1;
+		return NULL;
 	}
-	*ptr = c;
-	return 0;
+	return c;
 }
 
 /**
