@@ -17,7 +17,6 @@
 	along with opendsme.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 #include <assert.h>
 #include <stdio.h>
 #include <popt.h>
@@ -71,7 +70,9 @@ int main(const int argc, const char **argv) {
 		ret = EXIT_SUCCESS;
 	} else {
 		cal c;
-		if ((c = cal_init(CAL_DEFAULT_PATH)) != NULL) {
+		if ((c = cal_init(CAL_DEFAULT_PATH)) == NULL) {
+			ret = EXIT_FAILURE;
+		} else {
 			void *data;
 			uint32_t len;
 			/* TODO: produce error if more than one option given */
@@ -124,8 +125,6 @@ int main(const int argc, const char **argv) {
 			}
 			cal_destroy(c);
 			ret = EXIT_SUCCESS;
-		} else {
-			ret = EXIT_FAILURE;
 		}
 	}
 	poptFreeContext(ctx);
