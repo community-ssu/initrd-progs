@@ -122,8 +122,15 @@ static const uint64_t alphabet[256] = {
  *  - Expects letters to fit square area. Could be fixed to allow rectangular.
  *  - Doesn't accept coordinates and alignment at the same time.
  */
-static int fb_write_text(struct fb *fb, const char *text, const int scale, const uint32_t color,
-		int x, int y, const char *halign, const char *valign) {
+static int fb_write_text(
+		struct fb *fb,
+		const char *text,
+		const int scale,
+		const uint32_t color,
+		int x,
+		int y,
+		const char *halign,
+		const char *valign) {
 	if (scale < 1) {
 		fputs("Invalid scale\n", stderr);
 		return EXIT_FAILURE;
@@ -332,7 +339,8 @@ int main(const int argc, const char **argv) {
 		{"set-text-color", 'T', POPT_ARG_STRING, &text_color, 0,
 			"Use specified 24bit color for text. Default is 0x00FF00 (green).", "<color>"},
 		{"set-bg-color", 'B', POPT_ARG_STRING, &bg_color, 0,
-			"Use specified 24bit color for background. Default is 0xFFFFFF (white).", "<color>"},
+			"Use specified 24bit color for background. Default is 0xFFFFFF (white).",
+			"<color>"},
 		{"set-scale", 's', POPT_ARG_INT, &scale, 0,
 			"Set text size", "{1-10}"},
 		{"set-x", 'x', POPT_ARG_INT, &x, 0, "Text/clear area x-coordinate", "<int>"},
@@ -367,6 +375,10 @@ int main(const int argc, const char **argv) {
 		if (poptPeekArg(ctx) != NULL) {
 			fb.device = poptGetArg(ctx);
 		}
+		/*
+			TODO: this condition is wrong. We need to check that there's
+			only one action given.
+		*/
 		if (text && clear && version) {
 			/* More than one action at a time */
 			puts("Only one action can be given");
@@ -374,11 +386,12 @@ int main(const int argc, const char **argv) {
 		} else if (version) {
 			printf("fb_text2screen %s\n\n", VERSION);
 			puts("Copyright (C) 2009 Marat Radchenko <marat@slonopotamus.org>\n"
-				"License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
+				"License GPLv3+: GNU GPL version 3 or later"
+					" <http://gnu.org/licenses/gpl.html>\n"
 				"This is free software: you are free to change and redistribute it.\n"
 				"There is NO WARRANTY, to the extent permitted by law.");
 			ret = EXIT_SUCCESS;
-		} else if (!text && !clear) {
+		} else if (!text && !clear && !version) {
 			/* No action given */
 			poptPrintHelp(ctx, stdout, 0);
 			ret = EXIT_FAILURE;
