@@ -20,10 +20,7 @@
 #ifndef OPENCAL_H
 #define OPENCAL_H
 
-#include <stdlib.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <mtd/mtd-user.h>
+#include <stdint.h>
 
 #define CAL_DEFAULT_PATH "/dev/mtd1"
 

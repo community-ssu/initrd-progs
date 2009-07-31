@@ -25,7 +25,9 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <mtd/mtd-user.h>
 #include <strings.h>
+#include <stdlib.h>
 #include "opencal.h"
 
 /*

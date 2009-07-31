@@ -22,6 +22,8 @@
 #include <popt.h>
 #include <string.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "opencal.h"
 #include "config.h"
 
