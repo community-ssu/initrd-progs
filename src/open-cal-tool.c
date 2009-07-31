@@ -53,12 +53,21 @@ int main(const int argc, const char **argv) {
 	poptContext ctx = poptGetContext(NULL, argc, argv, popts, POPT_CONTEXT_NO_EXEC);
 	poptSetOtherOptionHelp(ctx, "OPTION");
 	const int rc = poptGetNextOpt(ctx);
+	const int option_sum = version + rd_mode + rd_flags + get_root_device
+		+ usb_host_mode + (root_device == NULL ? 0 : 1);
 	int ret;
 	if (rc != -1) {
 		/* Invalid option */
 		fprintf(stderr, "%s: %s\n",
 			poptBadOption(ctx, POPT_BADOPTION_NOALIAS),
 			poptStrerror(rc));
+		ret = EXIT_FAILURE;
+	} else if (option_sum > 1) {
+		fputs("Only one option can be given\n", stderr);
+		ret = EXIT_FAILURE;
+	} else if (option_sum == 0) {
+		/* No action given */
+		poptPrintHelp(ctx, stdout, 0);
 		ret = EXIT_FAILURE;
 	} else if (version) {
 			printf("open-cal-tool %s\n\n", VERSION);
@@ -75,7 +84,6 @@ int main(const int argc, const char **argv) {
 		} else {
 			void *data;
 			uint32_t len;
-			/* TODO: produce error if more than one option given */
 			if (rd_mode) {
 				if (cal_read_block(c, "r&d_mode", &data, &len, 0)) {
 					ret = EXIT_FAILURE;
@@ -118,10 +126,6 @@ int main(const int argc, const char **argv) {
 					fputs("not implemented yet\n", stderr);
 					ret = EXIT_FAILURE;
 				}
-			} else {
-				/* No action given */
-				poptPrintHelp(ctx, stdout, 0);
-				ret = EXIT_FAILURE;
 			}
 			cal_destroy(c);
 			ret = EXIT_SUCCESS;
