@@ -85,16 +85,17 @@ static void set_mac(cal c) {
 }
 
 static void set_bt_mac(cal c) {
-	const size_t mac_len = 6;
-	char mac[mac_len];
+	char mac[19];
 	char *data;
 	uint32_t len;
 	print_start("Pushing Bluetooth MAC address...");
 	if (cal_read_block(c, "bt-id", (void **)&data, &len, 0) == 0) {
 		assert(len == 10);
-		memcpy(mac, &data[4], mac_len);
+		assert(sprintf(mac, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+			data[4], data[5], data[6], data[7], data[8], data[9])
+			== sizeof(mac) - 1);
 		const char *file = "/sys/devices/platform/hci_h4p/bdaddr";
-		print_end(write_to(file, mac, mac_len));
+		print_end(write_to(file, mac, strlen(mac)));
 	}
 }
 
@@ -112,10 +113,6 @@ static void set_iq_values(cal c) {
 		char iq[130];
 		for (size_t i = 0; i < sizeof(iq) / item_len; ++i) {
 			const size_t read_offset = i * read_item_len + 4;
-			/* TODO: off-by-one error?
-				Result is correct, but assert fails.
-				13 * 8 + 4 == 108 == len */
-			/* assert(read_offset + read_item_len < len); */
 			size_t write_offset = item_len * i;
 			if (i == 0) {
 				iq[write_offset] = 108;
@@ -124,6 +121,7 @@ static void set_iq_values(cal c) {
 			}
 			write_offset++;
 			iq[write_offset++] = '\t';
+			assert(read_offset + read_item_len <= len);
 			memcpy(&iq[write_offset], &data[read_offset], read_item_len);
 		}
 		print_end(write_to("/sys/devices/platform/wlan-omap/cal_iq", iq, sizeof(iq)));
