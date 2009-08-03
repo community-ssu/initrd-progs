@@ -303,6 +303,13 @@ cal cal_init(const char *path) {
 		perror("ioctl(MEMGETINFO) failed");
 		goto cleanup;
 	}
+	/*
+		There's one more area, accessible via MTD_MODE_OTP_FACTORY. But for some
+		reason, OTPGETREGIONINFO reports bigger size for it than I can read().
+		It starts returning 0 bytes read after some offset.
+		Luckily, 'factory' area doesn't contain any data (dsme doesn't look at it
+		at all, so it is safe to just skip MTD_MODE_OTP_FACTORY.
+	*/
 	if (scan_blocks(c, MTD_MODE_NORMAL, &c->main_block_list)
 			|| scan_blocks(c, MTD_MODE_OTP_USER, &c->user_block_list)) {
 		goto cleanup;
