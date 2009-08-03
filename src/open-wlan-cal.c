@@ -84,6 +84,20 @@ static void set_mac(cal c) {
 	}
 }
 
+static void set_bt_mac(cal c) {
+	const size_t mac_len = 6;
+	char mac[mac_len];
+	char *data;
+	uint32_t len;
+	print_start("Pushing Bluetooth MAC address...");
+	if (cal_read_block(c, "bt-id", (void **)&data, &len, 0) == 0) {
+		assert(len == 10);
+		memcpy(mac, &data[4], mac_len);
+		const char *file = "/sys/devices/platform/hci_h4p/bdaddr";
+		print_end(write_to(file, mac, mac_len));
+	}
+}
+
 static void set_iq_values(cal c) {
 	/* 13 (items) * 8 (read_item_len) */
 	char *data;
@@ -228,6 +242,7 @@ int main(const int argc, const char **argv) {
 		if ((c = cal_init(path)) != NULL) {
 			set_default_country();
 			set_mac(c);
+			set_bt_mac(c);
 			set_iq_values(c);
 			set_tx_curve(c);
 			set_tx_limits();
