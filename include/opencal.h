@@ -45,7 +45,7 @@ int cal_read_block(
 	cal cal,
 	/* Block name */
 	const char *name,
-	/* Pointer to void * that'll be set to block data */
+	/* Pointer to void * that'll be set to block data. You must not modify it. */
 	void **data,
 	/* Pointer to variable that'll be set to block data length. */
 	uint32_t *len,

@@ -93,9 +93,9 @@ struct conf_block_header {
 	char name[16];
 	/* Data length. */
 	uint32_t len;
-	/* CRC(TODO: 32?) for block data. */
+	/* CRC32 for block data. */
 	uint32_t data_crc;
-	/* CRC(TODO: 32?) for header data. */
+	/* CRC32 for header data. */
 	uint32_t hdr_crc;
 };
 
@@ -111,19 +111,20 @@ struct conf_block {
 	struct conf_block *next;
 };
 
-/** TODO: what's this? */
+/** Structure, describing CAL area eraseblock. */
 struct cal_eb {
-	long unsigned int vaddr;
-	long unsigned int paddr;
+	/* Eraseblock offset in CAL area */
+	uint32_t addr;
+	/* Set to 1 if eraseblock doesn't have any conf blocks, 0 otherwise */
+	int empty;
+	struct cal_eb *next;
 };
 
 struct cal_area {
+	/* CAL area name ('main' or 'user') */
 	const char *name;
+	/* Area eraseblocks */
 	struct cal_eb *ebs;
-	int eb_count;
-	int valid;
-	long unsigned int empty_addr;
-	long unsigned int private_data;
 };
 
 /** Structure describing CAL storage. */
@@ -134,17 +135,14 @@ struct cal_s {
 	char *lock_file;
 	/* MTD partition info. See <mtd/mtd-abi.h> */
 	struct mtd_info_user mtd_info;
-	size_t page_size;
-	size_t eb_size;
+	/* Valid configuration block in main CAL area */
 	struct conf_block *main_block_list;
+	/* Valid configuration block in 'user' CAL area */
 	struct conf_block *user_block_list;
-	struct conf_block *wp_block_list;
-	struct cal_area config_area[2];
-	int active_config_area;
+	/* Structure, describing main CAL area (MTD_MODE_NORMAL) */
+	struct cal_area main_area;
+	/* Structure, describing 'user' CAL area (MTD_MODE_OTP_USER) */
 	struct cal_area user_area;
-	struct cal_area wp_area;
-	int has_wp;
-	uint8_t **page_cache;
 };
 
 /**
@@ -160,37 +158,90 @@ static inline off_t align_to_next_block(const off_t offset, const int bs) {
 
 /**
 	Scans CAL storage and fills block list with found blocks.
+	Doesn't free successfully read blocks on error.
 	@c pointer to CAL struct.
 	@select_mode MTD select mode. See OTPSELECT ioctl.
 	@list block list to add found blocks to.
+	@return 0 on success, other value on error.
 */
-static void scan_blocks(
+static int scan_blocks(
 		const cal c,
 		const int select_mode,
 		struct conf_block **list) {
-	/* TODO: handle errors */
-	ioctl(c->mtd_fd, OTPSELECT, &select_mode);
+	if (ioctl(c->mtd_fd, OTPSELECT, &select_mode)) {
+		perror("ioctl(OTPSELECT)");
+		return -1;
+	}
+	size_t size;
+	if (select_mode == MTD_MODE_NORMAL) {
+		size = c->mtd_info.size;
+	} else {
+		/*
+			All this crap is required to determine OTP area size.
+			Have a better way?
+		*/
+		int reg_count;
+		if (ioctl(c->mtd_fd, OTPGETREGIONCOUNT, &reg_count) < 0) {
+			perror("ioctl(OTPGETREGIONCOUNT)");
+			return -1;
+		}
+		if (reg_count <= 0) {
+			fputs("No regions", stderr);
+			return 0;
+		}
+		struct otp_info info[reg_count];
+		if (ioctl(c->mtd_fd, OTPGETREGIONINFO, &info)	< 0) {
+			perror("ioctl(OTPGETREGIONCOUNT)");
+			return -1;
+		}
+		size = info[reg_count - 1].start + info[reg_count - 1].length;
+
+	}
 	struct conf_block *prev = NULL;
-	for (off_t offset = 0; (size_t)offset < c->mtd_info.size;) {
-		/* TODO: handle errors */
+	for (off_t offset = 0; (size_t)offset < size;) {
 		struct conf_block *block = malloc(sizeof(struct conf_block));
-		/* TODO: handle errors */
-		lseek(c->mtd_fd, offset, SEEK_SET);
-		/* TODO: handle errors */
-		read(c->mtd_fd, &block->hdr, CAL_HEADER_LEN);
-		const size_t magic_len = strlen(CAL_BLOCK_HEADER_MAGIC);
-		/* TODO: is it safe to just skip such blocks? */
-		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, magic_len) != 0) {
-			/* Block should be empty. TODO: check bytes for 0xFF? */
+		if (errno == ENOMEM) {
+			perror("malloc failed");
+			return -1;
+		}
+		if (lseek(c->mtd_fd, offset, SEEK_SET) != offset) {
+			fprintf(stderr,  "Could not seek to %u: ", (uint32_t)offset);
+			perror(NULL);
 			free(block);
-			/* Align to write boundary after empty block */
-			offset = align_to_next_block(++offset, c->mtd_info.writesize);
+			return -1;
+		}
+		const ssize_t ret = read(c->mtd_fd, &block->hdr, CAL_HEADER_LEN);
+		if (ret == -1) {
+			perror("CAL read error");
+			free(block);
+			return -1;
+		} else if ((size_t)ret != CAL_HEADER_LEN) {
+			fputs("Could not fully read CAL block header", stderr);
+			free(block);
+			return -1;
+		}
+		const size_t magic_len = strlen(CAL_BLOCK_HEADER_MAGIC);
+		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, magic_len) != 0) {
+			/* Block should be empty. */
+			free(block);
+			if (offset % c->mtd_info.erasesize == 0) {
+				/*
+					If first conf block in eraseblock is empty, we assume al
+					eraseblock to be empty.
+				*/
+				offset = align_to_next_block(++offset, c->mtd_info.erasesize);
+			} else {
+				/* Align to writesize boundary after empty block */
+				offset = align_to_next_block(++offset, c->mtd_info.writesize);
+			}
 		} else {
+			if (block->hdr.hdr_version != CAL_HEADER_VERSION) {
+				free(block);
+				fprintf(stderr, "Unknown CAL block version %u at offset %u\n",
+					block->hdr.hdr_version, (uint32_t)offset);
+				return -1;
+			}
 			block->addr = offset;
-			/*
-				TODO: check header version. Bail out if it's unknown
-				so we don't destroy anything.
-			*/
 			if (prev == NULL) {
 				*list = block;
 			} else {
@@ -198,7 +249,10 @@ static void scan_blocks(
 			}
 			prev = block;
 			if (block->hdr.flags & CAL_BLOCK_FLAG_VARIABLE_LENGTH) {
-				/* We need to align reads to word boundary. */
+				/*
+					We align reads to word boundary if block has
+					CAL_BLOCK_FLAG_VARIABLE_LENGTH flag set.
+				*/
 				offset = align_to_next_block(
 					offset + CAL_HEADER_LEN + block->hdr.len,
 					sizeof(int));
@@ -207,6 +261,7 @@ static void scan_blocks(
 			}
 		}
 	}
+	return 0;
 }
 
 /** See cal_init in opencal.h for documentation. */
@@ -248,9 +303,10 @@ cal cal_init(const char *path) {
 		perror("ioctl(MEMGETINFO) failed");
 		goto cleanup;
 	}
-	scan_blocks(c, MTD_MODE_NORMAL, &c->main_block_list);
-	scan_blocks(c, MTD_MODE_OTP_USER, &c->user_block_list);
-	scan_blocks(c, MTD_MODE_OTP_FACTORY, &c->wp_block_list);
+	if (scan_blocks(c, MTD_MODE_NORMAL, &c->main_block_list)
+			|| scan_blocks(c, MTD_MODE_OTP_USER, &c->user_block_list)) {
+		goto cleanup;
+	}
 
 	if (0) {
 cleanup:
@@ -270,7 +326,7 @@ cleanup:
 	@existing pointer to list of blocks that'll be searched
 		for block with given name.
 	@select_mode MTD select mode (see OTPSELECT ioctl).
-	@return 0 if block was successfully found and read, otherwise -1.
+	@return 0 if block was successfully found and read, other value on error.
 */
 static int read_block(
 		cal c,
@@ -311,6 +367,7 @@ static int read_block(
 				return -1;
 			}
 		}
+		/* TODO: is it ok that our user can modify this via his pointer? */
 		*data = block->data;
 		*len = block->hdr.len;
 		return 0;
@@ -327,8 +384,7 @@ int cal_read_block(
 		uint32_t *len,
 		const uint16_t flags) {
 	if (read_block(c,name,data,len,c->main_block_list,MTD_MODE_NORMAL)
-		&& read_block(c,name,data,len,c->user_block_list,MTD_MODE_OTP_USER)
-		&& read_block(c,name,data,len,c->wp_block_list,MTD_MODE_OTP_FACTORY)) {
+		&& read_block(c,name,data,len,c->user_block_list,MTD_MODE_OTP_USER)) {
 		fprintf(stderr, "No block %s found\n", name);
 		return -1;
 	} else {
@@ -365,7 +421,6 @@ void cal_destroy(cal c) {
 	if (c) {
 		free_blocks(c->main_block_list);
 		free_blocks(c->user_block_list);
-		free_blocks(c->wp_block_list);
 		if (c->mtd_fd) {
 			close(c->mtd_fd);
 		}
