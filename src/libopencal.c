@@ -255,7 +255,7 @@ static int scan_blocks(
 				*/
 				offset = align_to_next_block(
 					offset + CAL_HEADER_LEN + block->hdr.len,
-					sizeof(int));
+					sizeof(void *));
 			} else {
 				offset = align_to_next_block(++offset, c->mtd_info.writesize);
 			}
