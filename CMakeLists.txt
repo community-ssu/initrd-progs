@@ -1,7 +1,7 @@
 # Generic info
 cmake_minimum_required(VERSION 2.6)
 project(fb_text2screen C)
-set(fb_text2screen_VERSION 0.2-git)
+set(fb_text2screen_VERSION 0.1.1)
 
 # Dependencies
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
