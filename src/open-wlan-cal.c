@@ -79,21 +79,24 @@ static void set_mac(cal c) {
 		for (size_t i = 0; i < mac_len; ++i) {
 			mac[i] = data[i + 1];
 		}
+		printf(" [%02x:%02x:%02x:%02x:%02x:%02x] ",
+			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 		const char *file = "/sys/devices/platform/wlan-omap/cal_mac_address";
 		print_end(write_to(file, mac, mac_len));
 	}
 }
 
 static void set_bt_mac(cal c) {
-	char mac[19];
+	char mac[18];
 	char *data;
 	uint32_t len;
 	print_start("Pushing Bluetooth MAC address...");
 	if (cal_read_block(c, "bt-id", (void **)&data, &len, 0) == 0) {
 		assert(len == 10);
-		assert(sprintf(mac, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+		assert(sprintf(mac, "%02x:%02x:%02x:%02x:%02x:%02x",
 			data[4], data[5], data[6], data[7], data[8], data[9])
 			== sizeof(mac) - 1);
+		printf(" [%s] ", mac);
 		const char *file = "/sys/devices/platform/hci_h4p/bdaddr";
 		print_end(write_to(file, mac, strlen(mac)));
 	}
