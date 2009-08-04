@@ -278,8 +278,10 @@ cal cal_init(const char *path) {
 	char *devicename = rindex(path, '/');
 	assert(devicename != NULL && strlen(devicename) > 1);
 	devicename = &devicename[1];
+	/* -2 because of '%s' placeholder. */
 	const size_t lock_len = strlen(lockfile_format) - 2 + strlen(devicename);
-	char *lock = malloc(lock_len);
+	/* +1 for trailing \0. */
+	char *lock = malloc(lock_len + 1);
 	if (errno == ENOMEM) {
 		goto cleanup;
 	}
