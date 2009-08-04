@@ -2,7 +2,7 @@
 if [ "x$1" == "x" ]; then
 	echo "Usage: $0 <version>"
 	exit 1;
-elif [ $(git tag -l | grep "v$1" >/dev/null) ]; then
+elif [ $(git tag -l | grep "v$1") ]; then
 	git archive --format=tar --prefix=opendsme-$1/ v$1 |
 		gzip >opendsme-$1.tar.gz;
 else
