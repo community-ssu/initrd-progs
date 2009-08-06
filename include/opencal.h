@@ -29,9 +29,7 @@ typedef struct cal_s * cal;
 
 /**
 	Initializes CAL structure.
-
-	N.B. You MUST call cal_destroy when you finished working with
-	CAL structure.
+	N.B. You MUST call cal_destroy when you finished working with CAL.
 	@path mtd device path
 	@return pointer to CAL structure on success, NULL on error.
 */
@@ -45,7 +43,10 @@ int cal_read_block(
 	cal cal,
 	/* Block name */
 	const char *name,
-	/* Pointer to void * that'll be set to block data. You must not modify it. */
+	/*
+		Pointer to void * that'll be set to block data. You must not modify data.
+		Automatically freed when cal_destroy is called.
+	*/
 	void **data,
 	/* Pointer to variable that'll be set to block data length. */
 	uint32_t *len,
@@ -67,7 +68,7 @@ int cal_write_block(
 	/* Some mysterious flags. Not used currently. */
 	const uint16_t flags);
 
-/** Closed/frees/cleanups after cal_init. */
+/** Closes/frees/cleanups after cal_init. */
 void cal_destroy(cal cal);
 
 #endif /* OPENCAL_H */
