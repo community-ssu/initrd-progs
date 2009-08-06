@@ -226,7 +226,7 @@ static int scan_blocks(
 			free(block);
 			if (offset % c->mtd_info.erasesize == 0) {
 				/*
-					If first conf block in eraseblock is empty, we assume al
+					If first conf block in eraseblock is empty, we assume whole
 					eraseblock to be empty.
 				*/
 				offset = align_to_next_block(++offset, c->mtd_info.erasesize);
@@ -376,7 +376,7 @@ static int read_block(
 				return -1;
 			}
 		}
-		/* TODO: is it ok that our user can modify this via his pointer? */
+		/* TODO: is it ok that our user can modify data via his pointer? */
 		*data = block->data;
 		*len = block->hdr.len;
 		return 0;
@@ -392,6 +392,10 @@ int cal_read_block(
 		void **data,
 		uint32_t *len,
 		const uint16_t flags) {
+	assert(c != NULL);
+	assert(name != NULL);
+	assert(data != NULL);
+	assert(len != NULL);
 	if (read_block(c,name,data,len,c->main_block_list,MTD_MODE_NORMAL)
 		&& read_block(c,name,data,len,c->user_block_list,MTD_MODE_OTP_USER)) {
 		fprintf(stderr, "No block %s found\n", name);
@@ -403,11 +407,19 @@ int cal_read_block(
 
 /** See cal_read_block in opencal.h for documentation. */
 int cal_write_block(
-		cal cal,
+		cal c,
 		const char *name,
 		const void *data,
 		const uint32_t len,
 		const uint16_t flags) {
+	assert(c != NULL);
+	assert(name != NULL);
+	assert(data != NULL);
+	const uint32_t max_data_len = c->mtd_info.writesize - CAL_HEADER_LEN;
+	if (len > max_data_len) {
+		fprintf(stderr, "Cannot write data longer than %u bytes", max_data_len);
+		return -1;
+	}
 	fputs("not implemented yet\n", stderr);
 	return -1;
 }
