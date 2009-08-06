@@ -425,11 +425,11 @@ int cal_write_block(
 	/*
 		TODO: implement this.
 		Plan:
-		1. When scanning for blocks, remember empty space. Sort it by size.
-		2. First, try to find smallest block that given data fits.
-		3. If found, write to it.
-		4. If not found, search for eraseblock that is least occupied with active
-		blocks and has inactive block that is large enough to store given data.
+		1. When scanning for blocks, remember empty space. Sort them by size.
+		2. First, try to find smallest empty space that given data fits.
+		3. If found, write to it. Return success.
+		4. If not found, search for eraseblock with largest (free + filled
+		with inactive blocks) space that is large enough to store given data.
 		5. If not found, return error.
 		6. Read all active blocks from found eraseblock into mem.
 		7. Erase that eraseblock and write all its saved active blocks.
