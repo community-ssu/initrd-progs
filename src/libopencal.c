@@ -276,6 +276,7 @@ cal cal_init(const char *path) {
 	const char *lockfile_format = "/tmp/cal.%s.lock";
 	assert(path != NULL);
 	char *devicename = rindex(path, '/');
+	/* TODO: replace assert with check and return */
 	assert(devicename != NULL && strlen(devicename) > 1);
 	devicename = &devicename[1];
 	/* -2 because of '%s' placeholder. */
@@ -317,6 +318,7 @@ cal cal_init(const char *path) {
 		goto cleanup;
 	}
 
+	/* TODO: this if (0) is kinda weird */
 	if (0) {
 cleanup:
 		cal_destroy(c);
@@ -420,6 +422,19 @@ int cal_write_block(
 		fprintf(stderr, "Cannot write data longer than %u bytes", max_data_len);
 		return -1;
 	}
+	/*
+		TODO: implement this.
+		Plan:
+		1. When scanning for blocks, remember empty space. Sort it by size.
+		2. First, try to find smallest block that given data fits.
+		3. If found, write to it.
+		4. If not found, search for eraseblock that is least occupied with active
+		blocks and has inactive block that is large enough to store given data.
+		5. If not found, return error.
+		6. Read all active blocks from found eraseblock into mem.
+		7. Erase that eraseblock and write all its saved active blocks.
+		8. Restart from 1.
+	*/
 	fputs("not implemented yet\n", stderr);
 	return -1;
 }
@@ -443,6 +458,7 @@ void cal_destroy(cal c) {
 		free_blocks(c->main_block_list);
 		free_blocks(c->user_block_list);
 		if (c->mtd_fd) {
+			/* TODO: check return code? And what to do? */
 			close(c->mtd_fd);
 		}
 		if (c->lock_file) {
