@@ -433,7 +433,7 @@ int cal_write_block(
 		5. If not found, return error.
 		6. Read all active blocks from found eraseblock into mem.
 		7. Erase that eraseblock and write all its saved active blocks.
-		8. Restart from 1.
+		8. Restart from 1. Assert that we stop at step 3 to prevent endless loop.
 	*/
 	fputs("not implemented yet\n", stderr);
 	return -1;
