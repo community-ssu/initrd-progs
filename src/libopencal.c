@@ -186,7 +186,7 @@ static int scan_blocks(
 			return -1;
 		}
 		if (reg_count <= 0) {
-			fputs("No regions", stderr);
+			fputs("No regions\n", stderr);
 			return 0;
 		}
 		struct otp_info info[reg_count];
@@ -216,7 +216,7 @@ static int scan_blocks(
 			free(block);
 			return -1;
 		} else if ((size_t)ret != CAL_HEADER_LEN) {
-			fputs("Could not fully read CAL block header", stderr);
+			fputs("Could not fully read CAL block header\n", stderr);
 			free(block);
 			return -1;
 		}
@@ -419,7 +419,7 @@ int cal_write_block(
 	assert(data != NULL);
 	const uint32_t max_data_len = c->mtd_info.writesize - CAL_HEADER_LEN;
 	if (len > max_data_len) {
-		fprintf(stderr, "Cannot write data longer than %u bytes", max_data_len);
+		fprintf(stderr, "Can't write data longer than %u bytes\n", max_data_len);
 		return -1;
 	}
 	/*
