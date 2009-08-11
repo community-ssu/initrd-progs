@@ -66,7 +66,8 @@
 	If block has this flag set then next block isn't writesize-aligned,
 	but is wordsize (32 bits) aligned and follows current block.
 	Empty block or block without this flag set returns alignment back to
-	writesize.
+	writesize. I'm not sure whether blocks with this flag are allowed to cross
+	writesize boundary.
 */
 #define CAL_BLOCK_FLAG_VARIABLE_LENGTH 1 << 0
 
@@ -425,15 +426,17 @@ int cal_write_block(
 	/*
 		TODO: implement this.
 		Plan:
-		1. When scanning for blocks, remember empty space. Sort them by size.
-		2. First, try to find smallest empty space that given data fits.
-		3. If found, write to it. Return success.
-		4. If not found, search for eraseblock with largest (free + filled
-		with inactive blocks) space that is large enough to store given data.
-		5. If not found, return error.
-		6. Read all active blocks from found eraseblock into mem.
-		7. Erase that eraseblock and write all its saved active blocks.
-		8. Restart from 1. Assert that we stop at step 3 to prevent endless loop.
+		1. Search for empty 2kb block.
+		2. If found, write to it. Return success.
+		3. If not found, search for eraseblock with largest free + filled
+		with inactive blocks block count.
+		4. If not found, return error (no space left).
+		5. Read all active blocks data from found eraseblock into mem.
+		6. Erase that eraseblock.
+		7. Iterate over blocks from erased area; free() inactive, write active
+		and fix their stored on-disk addr.
+		8. Write given data to following block after last written,
+		add it to in-mem block list.
 	*/
 	fputs("not implemented yet\n", stderr);
 	return -1;
