@@ -30,6 +30,9 @@ typedef struct cal_s * cal;
 /**
 	Initializes CAL structure.
 	N.B. You MUST call cal_destroy when you finished working with CAL.
+	It is guaranteed that no other proccess with modify CAL data by using lock
+	file, which is removed when cal_destroy is called.
+	Try to minimize time when you hold a lock as other processes may need CAL too.
 	@path mtd device path
 	@return pointer to CAL structure on success, NULL on error.
 */
