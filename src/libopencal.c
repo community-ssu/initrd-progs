@@ -426,16 +426,22 @@ int cal_write_block(
 	/*
 		TODO: implement this.
 		Plan:
-		1. Search for empty 2kb block.
-		2. If found, write to it. Return success.
-		3. If not found, search for eraseblock with largest free + filled
+		All writes go to 'main' area.
+		1. Check that 'user' block doesn't contain  block with given name.
+		It is important because if we write such block, there is no way to
+		return things to previous state 'cause version number is only increased.
+		2. Search for empty 2kb block.
+		3. If found, write to it. Return success.
+		4. If not found, search for eraseblock with largest free + filled
 		with inactive blocks block count.
-		4. If not found, return error (no space left).
-		5. Read all active blocks data from found eraseblock into mem.
-		6. Erase that eraseblock.
-		7. Iterate over blocks from erased area; free() inactive, write active
+		5. If not found, return error (no space left).
+		6. Read all active blocks data from found eraseblock into mem.
+		7. Erase that eraseblock.
+		8. Iterate over blocks from erased area; free() inactive, write active
 		and fix their stored on-disk addr.
-		8. Write given data to following block after last written,
+		9. Search for active block with same name, if found, set new block
+		version to old block version + 1. If not found, set version to 0.
+		10. Write given data to following block after last written,
 		add it to in-mem block list.
 	*/
 	fputs("not implemented yet\n", stderr);
