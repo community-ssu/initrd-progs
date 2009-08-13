@@ -28,6 +28,7 @@
 
 /* Dirty hack to make it build with vanilla kernel headers. */
 #define __u32 uint32_t
+#define __u8 uint8_t
 
 #include <mtd/mtd-user.h>
 #include <strings.h>
