@@ -25,6 +25,10 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include <errno.h>
+
+/* Dirty hack to make it build with vanilla kernel headers. */
+#define __u32 uint32_t
+
 #include <mtd/mtd-user.h>
 #include <strings.h>
 #include <stdlib.h>
