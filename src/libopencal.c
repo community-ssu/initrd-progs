@@ -234,6 +234,9 @@ static int scan_blocks(
 				/*
 					If first conf block in eraseblock is empty, we assume whole
 					eraseblock to be empty.
+
+					TODO: is the same true if we encounter _any_ empty 2kb block?
+					It should work because writes are performed sequentally.
 				*/
 				offset = align_to_next_block(++offset, c->mtd_info.erasesize);
 			} else {
@@ -261,6 +264,7 @@ static int scan_blocks(
 				*/
 				offset = align_to_next_block(
 					offset + CAL_HEADER_LEN + block->hdr.len,
+					/* TODO: is it correct? */
 					sizeof(void *));
 			} else {
 				offset = align_to_next_block(++offset, c->mtd_info.writesize);
@@ -333,6 +337,22 @@ cleanup:
 	return c;
 }
 
+static struct conf_block *find_block(
+		const char *name,
+		struct conf_block *block) {
+	struct conf_block *result = NULL;
+	while (block) {
+		if (strcmp(name, block->hdr.name) == 0
+				&& (result == NULL
+				/* Only block with highest version is considered active */
+				|| block->hdr.block_version > result->hdr.block_version)) {
+			result = block;
+		}
+		block = block->next;
+	}
+	return result;
+}
+
 /**
 	Searches for block with given name and reads its data if found.
 	TODO: return different values when nothing found or error occurred?
@@ -352,45 +372,35 @@ static int read_block(
 		uint32_t *len,
 		struct conf_block *existing,
 		int select_mode) {
-	struct conf_block *block = NULL;
-	while (existing) {
-		if (strcmp(name, existing->hdr.name) == 0
-				&& (block == NULL
-				/* Only block with highest version is considered active */
-				|| existing->hdr.block_version > block->hdr.block_version)) {
-			block = existing;
-		}
-		existing = existing->next;
-	}
-	if (block) {
-		if (block->data == NULL) {
-			if (ioctl(c->mtd_fd, OTPSELECT, &select_mode)) {
-				perror("ioctl(OTPSELECT)");
-				return -1;
-			}
-			if (lseek(c->mtd_fd, block->addr + CAL_HEADER_LEN, SEEK_SET) == -1) {
-				perror("lseek");
-				return -1;
-			}
-			block->data = malloc(block->hdr.len);
-			if (errno == ENOMEM) {
-				perror("malloc");
-				return -1;
-			}
-			const ssize_t ret = read(c->mtd_fd, block->data, block->hdr.len);
-			if (ret == -1 || (size_t)ret != block->hdr.len) {
-				perror("read error");
-				free(block->data);
-				return -1;
-			}
-		}
-		/* TODO: is it ok that our user can modify data via his pointer? */
-		*data = block->data;
-		*len = block->hdr.len;
-		return 0;
-	} else {
+	struct conf_block *block = find_block(name, existing);
+	if (block == NULL) {
 		return -1;
 	}
+	if (block->data == NULL) {
+		if (ioctl(c->mtd_fd, OTPSELECT, &select_mode)) {
+			perror("ioctl(OTPSELECT)");
+			return -1;
+		}
+		if (lseek(c->mtd_fd, block->addr + CAL_HEADER_LEN, SEEK_SET) == -1) {
+			perror("lseek");
+			return -1;
+		}
+		block->data = malloc(block->hdr.len);
+		if (errno == ENOMEM) {
+			perror("malloc");
+			return -1;
+		}
+		const ssize_t ret = read(c->mtd_fd, block->data, block->hdr.len);
+		if (ret == -1 || (size_t)ret != block->hdr.len) {
+			perror("read error");
+			free(block->data);
+			return -1;
+		}
+	}
+	/* TODO: is it ok that our user can modify data via his pointer? */
+	*data = block->data;
+	*len = block->hdr.len;
+	return 0;
 }
 
 /** See cal_read_block in opencal.h for documentation. */
@@ -429,12 +439,19 @@ int cal_write_block(
 		return -1;
 	}
 	/*
+		Check that 'user' block doesn't contain  block with given name.
+		It is important because if we write such block, there is no way to
+		return things to previous state 'cause version number is only increased.
+	*/
+	if (find_block(name, c->user_block_list) != NULL) {
+		fprintf(stderr, "Tried to overwrite block '%s' from 'user' area.\n",
+			name);
+		return -1;
+	}
+	/*
 		TODO: implement this.
 		Plan:
 		All writes go to 'main' area.
-		1. Check that 'user' block doesn't contain  block with given name.
-		It is important because if we write such block, there is no way to
-		return things to previous state 'cause version number is only increased.
 		2. Search for empty 2kb block.
 		3. If found, write to it. Return success.
 		4. If not found, search for eraseblock with largest free + filled
