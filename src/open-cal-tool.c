@@ -55,20 +55,19 @@ int main(const int argc, const char **argv) {
 	const int rc = poptGetNextOpt(ctx);
 	const int option_sum = version + rd_mode + rd_flags + get_root_device
 		+ usb_host_mode + (root_device == NULL ? 0 : 1);
-	int ret;
+
+	cal c;
+	int ret = EXIT_FAILURE;
 	if (rc != -1) {
 		/* Invalid option */
 		fprintf(stderr, "%s: %s\n",
 			poptBadOption(ctx, POPT_BADOPTION_NOALIAS),
 			poptStrerror(rc));
-		ret = EXIT_FAILURE;
 	} else if (option_sum > 1) {
 		fputs("Only one option can be given\n", stderr);
-		ret = EXIT_FAILURE;
 	} else if (option_sum == 0) {
 		/* No action given */
 		poptPrintHelp(ctx, stdout, 0);
-		ret = EXIT_FAILURE;
 	} else if (version) {
 			printf("open-cal-tool %s\n\n", VERSION);
 			puts("Copyright (C) 2009 Marat Radchenko <marat@slonopotamus.org>\n"
@@ -77,59 +76,33 @@ int main(const int argc, const char **argv) {
 				"This is free software: you are free to change and redistribute it.\n"
 				"There is NO WARRANTY, to the extent permitted by law.");
 		ret = EXIT_SUCCESS;
-	} else {
-		cal c;
-		if ((c = cal_init(CAL_DEFAULT_PATH)) == NULL) {
-			ret = EXIT_FAILURE;
-		} else {
-			void *data;
-			uint32_t len;
-			if (rd_mode) {
-				if (cal_read_block(c, "r&d_mode", &data, &len, 0)) {
-					ret = EXIT_FAILURE;
-				} else {
-					/*
-						TODO: r&d flags are stored in same block.
-						There might be more that one byte when they're set.
-					*/
-					assert(len == 1);
-					puts(((char *)data)[0] ? "enabled" : "disabled");
-				}
-			} else if (rd_flags) {
-				if (cal_read_block(c, "r&d_mode", &data, &len, 0)) {
-					ret = EXIT_FAILURE;
-				} else {
-					/* TODO: implement this */
-					fputs("not implemented yet\n", stderr);
-					ret = EXIT_FAILURE;
-				}
-			} else if (get_root_device) {
-				if (cal_read_block(c, "root_device", &data, &len, 0)) {
-					ret = EXIT_FAILURE;
-				} else {
-					puts(data);
-					ret = EXIT_SUCCESS;
-				}
-			} else if (root_device) {
-				len = strlen(root_device) + 1;
-				if (cal_write_block(c, "root_device", &root_device, len, 0)) {
-					ret = EXIT_FAILURE;
-				} else {
-					puts(data);
-					ret = EXIT_SUCCESS;
-				}
-			} else if (usb_host_mode) {
-				if (cal_read_block(c, "usb_host_mode", &data, &len, 0)) {
-					ret = EXIT_FAILURE;
-				} else {
-					/* TODO: implement this */
-					fputs("not implemented yet\n", stderr);
-					ret = EXIT_FAILURE;
-				}
-			}
-			cal_destroy(c);
+	} else if ((c = cal_init(CAL_DEFAULT_PATH)) != NULL) {
+		void *data;
+		uint32_t len;
+		if (rd_mode && !cal_read_block(c, "r&d_mode", &data, &len, 0)) {
+			/*
+				TODO: r&d flags are stored in same block.
+				There might be more that one byte when they're set.
+			*/
+			assert(len == 1);
+			puts(((char *)data)[0] ? "enabled" : "disabled");
 			ret = EXIT_SUCCESS;
+		} else if (rd_flags && !cal_read_block(c, "r&d_mode", &data, &len, 0)) {
+			/* TODO: implement this */
+			fputs("not implemented yet\n", stderr);
+		} else if (get_root_device && !cal_read_block(c, "root_device", &data, &len, 0)) {
+			char buf[len + 1];
+			memcpy(buf, data, len);
+			buf[len] = '\0';
+			puts(buf);
+			ret = EXIT_SUCCESS;
+		} else if (root_device && !cal_write_block(c, "root_device", &root_device, strlen(root_device), 0)) {
+			ret = EXIT_SUCCESS;
+		} else if (usb_host_mode && !cal_read_block(c, "usb_host_mode", &data, &len, 0)) {
+			/* TODO: implement this */
+			fputs("not implemented yet\n", stderr);
 		}
+		cal_destroy(c);
 	}
 	poptFreeContext(ctx);
 	return ret;
