@@ -96,7 +96,7 @@ int main(const int argc, const char **argv) {
 			buf[len] = '\0';
 			puts(buf);
 			ret = EXIT_SUCCESS;
-		} else if (root_device && !cal_write_block(c, "root_device", &root_device, strlen(root_device), 0)) {
+		} else if (root_device && !cal_write_block(c, "root_device", root_device, strlen(root_device), 0)) {
 			ret = EXIT_SUCCESS;
 		} else if (usb_host_mode && !cal_read_block(c, "usb_host_mode", &data, &len, 0)) {
 			/* TODO: implement this */
