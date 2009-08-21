@@ -25,6 +25,7 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <zlib.h>
 
 /* Dirty hack to make it build with vanilla kernel headers. */
 #define __u32 uint32_t
@@ -78,6 +79,8 @@
 
 #define CAL_HEADER_LEN sizeof(struct conf_block_header)
 
+#define CAL_BLOCK_NAME_LEN 16
+
 /** On-disk CAL block header structure. */
 struct conf_block_header {
 	/* Magic header. Set to CAL_BLOCK_HEADER_MAGIC. */
@@ -96,7 +99,7 @@ struct conf_block_header {
 	*/
 	uint16_t flags;
 	/* Block name. */
-	char name[16];
+	char name[CAL_BLOCK_NAME_LEN];
 	/* Data length. */
 	uint32_t len;
 	/* CRC32 for block data. */
@@ -108,29 +111,13 @@ struct conf_block_header {
 /** Structure describing CAL block. */
 struct conf_block {
 	/* Header on-disk offset */
-	off_t addr;
+	uint32_t addr;
 	/* Block header. */
 	struct conf_block_header hdr;
 	/* Block data. */
 	void *data;
 	/* Pointer to next block (NULL if this block is last). */
 	struct conf_block *next;
-};
-
-/** Structure, describing CAL area eraseblock. */
-struct cal_eb {
-	/* Eraseblock offset in CAL area */
-	uint32_t addr;
-	/* Set to 1 if eraseblock doesn't have any conf blocks, 0 otherwise */
-	int empty;
-	struct cal_eb *next;
-};
-
-struct cal_area {
-	/* CAL area name ('main' or 'user') */
-	const char *name;
-	/* Area eraseblocks */
-	struct cal_eb *ebs;
 };
 
 /** Structure describing CAL storage. */
@@ -145,10 +132,6 @@ struct cal_s {
 	struct conf_block *main_block_list;
 	/* Valid configuration block in 'user' CAL area */
 	struct conf_block *user_block_list;
-	/* Structure, describing main CAL area (MTD_MODE_NORMAL) */
-	struct cal_area main_area;
-	/* Structure, describing 'user' CAL area (MTD_MODE_OTP_USER) */
-	struct cal_area user_area;
 };
 
 /**
@@ -160,6 +143,15 @@ struct cal_s {
 */
 static inline off_t align_to_next_block(const off_t offset, const int bs) {
 	return (offset + bs - 1) & ~(bs - 1);
+}
+
+/*
+	Calculates CRC32 value for header data of given block.
+	@block CAL conf block.
+	@return header crc.
+*/
+static inline uint32_t conf_block_header_crc(const struct conf_block *block) {
+	return crc32(0L, (Bytef *)&block->hdr, CAL_HEADER_LEN - sizeof(block->hdr.hdr_crc));
 }
 
 /**
@@ -217,17 +209,12 @@ static int scan_blocks(
 			return -1;
 		}
 		const ssize_t ret = read(c->mtd_fd, &block->hdr, CAL_HEADER_LEN);
-		if (ret == -1) {
+		if (ret == -1 || (size_t)ret != CAL_HEADER_LEN) {
 			perror("CAL read error");
 			free(block);
 			return -1;
-		} else if ((size_t)ret != CAL_HEADER_LEN) {
-			fputs("Could not fully read CAL block header\n", stderr);
-			free(block);
-			return -1;
 		}
-		const size_t magic_len = strlen(CAL_BLOCK_HEADER_MAGIC);
-		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, magic_len) != 0) {
+		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4) != 0) {
 			/* Block should be empty. */
 			free(block);
 			if (offset % c->mtd_info.erasesize == 0) {
@@ -245,16 +232,26 @@ static int scan_blocks(
 			}
 		} else {
 			if (block->hdr.hdr_version != CAL_HEADER_VERSION) {
-				free(block);
 				fprintf(stderr, "Unknown CAL block version %u at offset %u\n",
 					block->hdr.hdr_version, (uint32_t)offset);
+				free(block);
 				return -1;
 			}
+			/* TODO: fails for all blocks written by libcal
+			const uint32_t crc = conf_block_header_crc(block);
+			if (crc != block->hdr.hdr_crc) {
+				fprintf(stderr, "Invalid header crc at offset %u."
+					" Expected 0x%x but got 0x%x\n",
+					(uint32_t)offset, crc, block->hdr.hdr_crc);
+				free(block);
+				return -1;
+			} */
+
 			block->addr = offset;
-			if (prev == NULL) {
-				*list = block;
-			} else {
+			if (prev) {
 				prev->next = block;
+			} else {
+				*list = block;
 			}
 			prev = block;
 			if (block->hdr.flags & CAL_BLOCK_FLAG_VARIABLE_LENGTH) {
@@ -284,10 +281,10 @@ cal cal_init(const char *path) {
 
 	/* TODO: make configurable? */
 	const char *lockfile_format = "/tmp/cal.%s.lock";
-	assert(path != NULL);
+	assert(path);
 	char *devicename = rindex(path, '/');
 	/* TODO: replace assert with check and return */
-	assert(devicename != NULL && strlen(devicename) > 1);
+	assert(devicename && strlen(devicename) > 1);
 	devicename = &devicename[1];
 	/* -2 because of '%s' placeholder. */
 	const size_t lock_len = strlen(lockfile_format) - 2 + strlen(devicename);
@@ -337,13 +334,19 @@ cleanup:
 	return c;
 }
 
+/*
+	Searches for active block with given name in given block list.
+	@name block name to search.
+	@block list of existing blocks.
+	@return active block with given name or NULL if no such block found.
+*/
 static struct conf_block *find_block(
 		const char *name,
 		struct conf_block *block) {
 	struct conf_block *result = NULL;
 	while (block) {
-		if (strcmp(name, block->hdr.name) == 0
-				&& (result == NULL
+		if (strncmp(name, block->hdr.name, CAL_BLOCK_NAME_LEN) == 0
+				&& (!result
 				/* Only block with highest version is considered active */
 				|| block->hdr.block_version > result->hdr.block_version)) {
 			result = block;
@@ -353,30 +356,38 @@ static struct conf_block *find_block(
 	return result;
 }
 
-/**
-	Searches for block with given name and reads its data if found.
-	TODO: return different values when nothing found or error occurred?
-	@c pointer to CAL structure.
-	@name block name
-	@data pointer to pointer that'll be set to read data.
-	@len pointer to var that'll be set to data length.
-	@existing pointer to list of blocks that'll be searched
-		for block with given name.
-	@select_mode MTD select mode (see OTPSELECT ioctl).
-	@return 0 if block was successfully found and read, other value on error.
+/*
+	Checks block name validity.
+	@name block name to be validated.
+	@return 0 if block name is valid, otherwise -1.
 */
-static int read_block(
-		cal c,
-		const char *name,
-		void **data,
-		uint32_t *len,
-		struct conf_block *existing,
-		int select_mode) {
-	struct conf_block *block = find_block(name, existing);
-	if (block == NULL) {
+static int validate_block_name(const char *name) {
+	if (!name) {
+		fputs("Block name cannot be NULL\n", stderr);
 		return -1;
+	} else if (strlen(name) == 0) {
+		fputs("Empty name is not allowed\n", stderr);
+		return -1;
+	} else if (strlen(name) > CAL_BLOCK_NAME_LEN) {
+		fputs("Too long block name\n", stderr);
+		return -1;
+	} else {
+		return 0;
 	}
-	if (block->data == NULL) {
+}
+
+/**
+	Reads block data from MTD into block->data.
+	@c pointer to CAL structure.
+	@block block, whose data is to be read name
+	@select_mode MTD select mode (see OTPSELECT ioctl).
+	@return 0 if block was successfully read, other value on error.
+*/
+static int read_block_data(
+		const cal c,
+		struct conf_block *block,
+		const int select_mode) {
+	if (!block->data) {
 		if (ioctl(c->mtd_fd, OTPSELECT, &select_mode)) {
 			perror("ioctl(OTPSELECT)");
 			return -1;
@@ -394,12 +405,21 @@ static int read_block(
 		if (ret == -1 || (size_t)ret != block->hdr.len) {
 			perror("read error");
 			free(block->data);
+			block->data = NULL;
 			return -1;
 		}
+		/* TODO: not compatible with what libcal does.
+		const uint32_t crc = crc32(0L, block->data, block->hdr.len);
+		if (crc != block->hdr.data_crc) {
+			fprintf(stderr, "Invalid data crc at offset %u."
+				" Expected 0x%x but got 0x%x\n",
+				block->addr, crc, block->hdr.data_crc);
+			free(block->data);
+			block->data = NULL;
+			return -1;
+		}
+		*/
 	}
-	/* TODO: is it ok that our user can modify data via his pointer? */
-	*data = block->data;
-	*len = block->hdr.len;
 	return 0;
 }
 
@@ -410,17 +430,23 @@ int cal_read_block(
 		void **data,
 		uint32_t *len,
 		const uint16_t flags) {
-	assert(c != NULL);
-	assert(name != NULL);
-	assert(data != NULL);
-	assert(len != NULL);
-	if (read_block(c,name,data,len,c->main_block_list,MTD_MODE_NORMAL)
-		&& read_block(c,name,data,len,c->user_block_list,MTD_MODE_OTP_USER)) {
+	assert(c);
+	if (validate_block_name(name)) return -1;
+	assert(data);
+	assert(len);
+	struct conf_block *block;
+	if ((block = find_block(name, c->main_block_list)) != NULL) {
+		if (read_block_data(c, block, MTD_MODE_NORMAL)) return -1;
+	} else if ((block = find_block(name, c->user_block_list)) != NULL) {
+		if (read_block_data(c, block, MTD_MODE_OTP_USER)) return -1;
+	} else {
 		fprintf(stderr, "No block %s found\n", name);
 		return -1;
-	} else {
-		return 0;
 	}
+	/* TODO: is it ok that our user can modify data via his pointer? */
+	*data = block->data;
+	*len = block->hdr.len;
+	return 0;
 }
 
 /** See cal_read_block in opencal.h for documentation. */
@@ -430,44 +456,126 @@ int cal_write_block(
 		const void *data,
 		const uint32_t len,
 		const uint16_t flags) {
-	assert(c != NULL);
-	assert(name != NULL);
-	assert(data != NULL);
+	assert(c);
+	if (validate_block_name(name)) return -1;
+	assert(data);
 	const uint32_t max_data_len = c->mtd_info.writesize - CAL_HEADER_LEN;
 	if (len > max_data_len) {
 		fprintf(stderr, "Can't write data longer than %u bytes\n", max_data_len);
 		return -1;
 	}
 	/*
-		Check that 'user' block doesn't contain  block with given name.
+		Check that 'user' area doesn't contain block with given name.
 		It is important because if we write such block, there is no way to
 		return things to previous state 'cause version number is only increased.
 	*/
-	if (find_block(name, c->user_block_list) != NULL) {
+	if (find_block(name, c->user_block_list)) {
 		fprintf(stderr, "Tried to overwrite block '%s' from 'user' area.\n",
 			name);
 		return -1;
 	}
-	/*
-		TODO: implement this.
-		Plan:
-		All writes go to 'main' area.
-		2. Search for empty 2kb block.
-		3. If found, write to it. Return success.
-		4. If not found, search for eraseblock with largest free + filled
-		with inactive blocks block count.
-		5. If not found, return error (no space left).
-		6. Read all active blocks data from found eraseblock into mem.
-		7. Erase that eraseblock.
-		8. Iterate over blocks from erased area; free() inactive, write active
-		and fix their stored on-disk addr.
-		9. Search for active block with same name, if found, set new block
-		version to old block version + 1. If not found, set version to 0.
-		10. Write given data to following block after last written,
-		add it to in-mem block list.
-	*/
-	fputs("not implemented yet\n", stderr);
-	return -1;
+	struct conf_block *prev = find_block(name, c->main_block_list);
+	if (prev
+			&& prev->hdr.len == len
+			&& !read_block_data(c, prev, MTD_MODE_NORMAL)
+			&& memcmp(data, prev->data, len) == 0) {
+		/* Active block already has given data. */
+		return 0;
+	}
+
+	/* Search for empty block. */
+	struct conf_block *anchor = c->main_block_list;
+	off_t offset = -1;
+	if (!anchor || anchor->addr >= c->mtd_info.writesize) {
+		/* Empty list or empty space before first block */
+		offset = 0;
+	} else {
+		while (anchor) {
+			const uint32_t start = align_to_next_block(
+				anchor->addr + CAL_HEADER_LEN + anchor->hdr.len,
+				c->mtd_info.writesize);
+			const uint32_t end = anchor->next
+				? anchor->next->addr
+				: c->mtd_info.size;
+			assert(start <= end);
+			if (end - start >= c->mtd_info.writesize) {
+				offset = start;
+				break;
+			}
+			anchor = anchor->next;
+		}
+	}
+	if (offset > -1) {
+		/* Found empty space, write to it. */
+		struct conf_block *block = malloc(sizeof(struct conf_block));
+		if (errno == ENOMEM) {
+			perror(NULL);
+			return -1;
+		}
+		memcpy(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4);
+		block->hdr.hdr_version = CAL_HEADER_VERSION;
+		block->hdr.block_version = prev ? prev->hdr.block_version + 1 : 0;
+		block->hdr.flags = 0;
+		memcpy(block->hdr.name, name, strlen(name));
+		block->hdr.len = len;
+		/* TODO: not compatible with libcal
+		block->hdr.data_crc = crc32(0L, data, len);
+		block->hdr.hdr_crc = conf_block_header_crc(block); */
+		block->addr = offset;
+		block->data = malloc(len);
+		if (errno == ENOMEM) {
+			perror(NULL);
+			free(block);
+			return -1;
+		}
+		memcpy(block->data, data, len);
+		char buf[c->mtd_info.writesize];
+		memcpy(buf, &block->hdr, CAL_HEADER_LEN);
+		memcpy(&buf[CAL_HEADER_LEN], data, len);
+		for (uint32_t i = CAL_HEADER_LEN + len; i < sizeof(buf); ++i) {
+			buf[i] = 0xFF;
+		}
+		const off_t off = lseek(c->mtd_fd, offset, SEEK_SET);
+		if (off == -1 || off != offset) {
+			perror("lseek failed");
+			free(block->data);
+			free(block);
+			return -1;
+		}
+		fprintf(stderr, "Writing new block at offset %u\n", (uint32_t)offset);
+		const ssize_t ret = 1 || write(c->mtd_fd, buf, sizeof(buf));
+		if (ret == -1 || (size_t)ret != sizeof(buf)) {
+			perror("write failed");
+			free(block->data);
+			free(block);
+			return -1;
+		}
+		if (!anchor || (uint32_t)offset < anchor->addr) {
+			block->next = anchor;
+			c->main_block_list = block;
+		} else {
+			block->next = anchor->next;
+			anchor->next = block;
+		}
+	} else {
+		/*
+			TODO: implement this.
+			4. If not found, search for eraseblock with largest free + filled
+			with inactive blocks block count.
+			5. If not found, return error (no space left).
+			6. Read all active blocks data from found eraseblock into mem.
+			7. Erase that eraseblock.
+			8. Iterate over blocks from erased area; free() inactive, write active
+			and fix their stored on-disk addr.
+			9. Search for active block with same name, if found, set new block
+			version to old block version + 1. If not found, set version to 0.
+			10. Write given data to following block after last written,
+			add it to in-mem block list.
+		*/
+		fputs("erasing not implemented yet\n", stderr);
+		return -1;
+	}
+	return 0;
 }
 
 /**
