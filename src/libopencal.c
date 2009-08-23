@@ -514,6 +514,10 @@ int cal_write_block(
 		}
 		memcpy(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4);
 		block->hdr.hdr_version = CAL_HEADER_VERSION;
+		/*
+			If active block with same name found, set new block
+			version to old block version + 1. Otherwise, set version to 0.
+		*/
 		block->hdr.block_version = prev ? prev->hdr.block_version + 1 : 0;
 		block->hdr.flags = 0;
 		memcpy(block->hdr.name, name, strlen(name));
@@ -567,9 +571,7 @@ int cal_write_block(
 			7. Erase that eraseblock.
 			8. Iterate over blocks from erased area; free() inactive, write active
 			and fix their stored on-disk addr.
-			9. Search for active block with same name, if found, set new block
-			version to old block version + 1. If not found, set version to 0.
-			10. Write given data to following block after last written,
+			9. Write given data to following block after last written,
 			add it to in-mem block list.
 		*/
 		fputs("erasing not implemented yet\n", stderr);
