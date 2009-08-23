@@ -597,8 +597,9 @@ void cal_destroy(cal c) {
 		free_blocks(c->main_block_list);
 		free_blocks(c->user_block_list);
 		if (c->mtd_fd) {
-			/* TODO: check return code? And what to do? */
-			close(c->mtd_fd);
+			if (close(c->mtd_fd)) {
+				perror("Could not close CAL file");
+			}
 		}
 		if (c->lock_file) {
 			if (unlink(c->lock_file)) {
