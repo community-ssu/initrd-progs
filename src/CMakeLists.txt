@@ -3,7 +3,7 @@ find_package(Popt REQUIRED)
 find_package(ZLIB REQUIRED)
 
 # Checks
-set(CMAKE_REQUIRED_FLAGS "-std=c99 -Wall -Wextra -pedantic")
+set(CMAKE_REQUIRED_FLAGS "-std=c99 -Wall -Wextra -Werror -pedantic")
 include(CheckIncludeFiles)
 check_include_files(mtd/mtd-user.h HAVE_MTD_USER_H)
 if(!${HAVE_MTD_USER_H})

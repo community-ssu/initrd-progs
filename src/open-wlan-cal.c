@@ -48,7 +48,7 @@ static ssize_t write_to(const char *path, const void *value, const size_t len) {
 }
 
 static void print_start(const char *msg) {
-	printf(msg);
+	fputs(msg, stdout);
 	fflush(stdout);
 }
 

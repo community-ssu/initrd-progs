@@ -141,7 +141,8 @@ struct cal_s {
 	@bs block size to use for alignment
 	@return block-aligned offset
 */
-static inline off_t align_to_next_block(const off_t offset, const int bs) {
+static inline off_t __attribute__((const))
+		align_to_next_block(const off_t offset, const int bs) {
 	return (offset + bs - 1) & ~(bs - 1);
 }
 
@@ -150,8 +151,10 @@ static inline off_t align_to_next_block(const off_t offset, const int bs) {
 	@block CAL conf block.
 	@return header crc.
 */
-static inline uint32_t conf_block_header_crc(const struct conf_block *block) {
-	return crc32(0L, (Bytef *)&block->hdr, CAL_HEADER_LEN - sizeof(block->hdr.hdr_crc));
+static inline uint32_t __attribute__((nonnull,warn_unused_result))
+		conf_block_header_crc(const struct conf_block *block) {
+	const size_t len = CAL_HEADER_LEN - sizeof(block->hdr.hdr_crc);
+	return crc32(0L, (Bytef *)&block->hdr, len);
 }
 
 /**
@@ -162,7 +165,8 @@ static inline uint32_t conf_block_header_crc(const struct conf_block *block) {
 	@list block list to add found blocks to.
 	@return 0 on success, other value on error.
 */
-static int scan_blocks(
+static int __attribute__((nonnull(1),warn_unused_result))
+		scan_blocks(
 		const cal c,
 		const int select_mode,
 		struct conf_block **list) {
@@ -340,9 +344,8 @@ cleanup:
 	@block list of existing blocks.
 	@return active block with given name or NULL if no such block found.
 */
-static struct conf_block *find_block(
-		const char *name,
-		struct conf_block *block) {
+static struct conf_block * __attribute__((nonnull(1),warn_unused_result))
+		find_block(const char *name, struct conf_block *block) {
 	struct conf_block *result = NULL;
 	while (block) {
 		if (strncmp(name, block->hdr.name, CAL_BLOCK_NAME_LEN) == 0
@@ -361,7 +364,8 @@ static struct conf_block *find_block(
 	@name block name to be validated.
 	@return 0 if block name is valid, otherwise -1.
 */
-static int validate_block_name(const char *name) {
+static int __attribute__((nonnull,warn_unused_result))
+		validate_block_name(const char *name) {
 	if (!name) {
 		fputs("Block name cannot be NULL\n", stderr);
 		return -1;
@@ -383,7 +387,8 @@ static int validate_block_name(const char *name) {
 	@select_mode MTD select mode (see OTPSELECT ioctl).
 	@return 0 if block was successfully read, other value on error.
 */
-static int read_block_data(
+static int __attribute__((nonnull,warn_unused_result))
+		read_block_data(
 		const cal c,
 		struct conf_block *block,
 		const int select_mode) {
@@ -429,7 +434,7 @@ int cal_read_block(
 		const char *name,
 		void **data,
 		uint32_t *len,
-		const uint16_t flags) {
+		const uint16_t flags __attribute__((unused))) {
 	assert(c);
 	if (validate_block_name(name)) return -1;
 	assert(data);
@@ -455,7 +460,7 @@ int cal_write_block(
 		const char *name,
 		const void *data,
 		const uint32_t len,
-		const uint16_t flags) {
+		const uint16_t flags __attribute__((unused))) {
 	assert(c);
 	if (validate_block_name(name)) return -1;
 	assert(data);
@@ -483,13 +488,14 @@ int cal_write_block(
 		return 0;
 	}
 
-	/* Search for empty block. */
 	struct conf_block *anchor = c->main_block_list;
 	off_t offset = -1;
 	if (!anchor || anchor->addr >= c->mtd_info.writesize) {
 		/* Empty list or empty space before first block */
 		offset = 0;
 	} else {
+		/* Search for empty space. */
+		/* TODO: handle bad blocks */
 		while (anchor) {
 			const uint32_t start = align_to_next_block(
 				anchor->addr + CAL_HEADER_LEN + anchor->hdr.len,
@@ -569,8 +575,8 @@ int cal_write_block(
 			5. If not found, return error (no space left).
 			6. Read all active blocks data from found eraseblock into mem.
 			7. Erase that eraseblock.
-			8. Iterate over blocks from erased area; free() inactive, write active
-			and fix their stored on-disk addr.
+			8. Iterate over blocks from erased area; free() inactive,
+			write active and fix their stored on-disk addr.
 			9. Write given data to following block after last written,
 			add it to in-mem block list.
 		*/
@@ -595,22 +601,21 @@ static void free_blocks(struct conf_block *block) {
 
 /** See cal_destroy in opencal.h for documentation. */
 void cal_destroy(cal c) {
-	if (c) {
-		free_blocks(c->main_block_list);
-		free_blocks(c->user_block_list);
-		if (c->mtd_fd) {
-			if (close(c->mtd_fd)) {
-				perror("Could not close CAL file");
-			}
+	assert(c);
+	free_blocks(c->main_block_list);
+	free_blocks(c->user_block_list);
+	if (c->mtd_fd) {
+		if (close(c->mtd_fd)) {
+			perror("Could not close CAL file");
 		}
-		if (c->lock_file) {
-			if (unlink(c->lock_file)) {
-				fprintf(stderr, "Could not remove lock file %s!"
-					" Please, remove it manually: ", c->lock_file);
-				perror(NULL);
-			}
-			free(c->lock_file);
-		}
-		free(c);
 	}
+	if (c->lock_file) {
+		if (unlink(c->lock_file)) {
+			fprintf(stderr, "Could not remove lock file %s!"
+				" Please, remove it manually: ", c->lock_file);
+			perror(NULL);
+		}
+		free(c->lock_file);
+	}
+	free(c);
 }

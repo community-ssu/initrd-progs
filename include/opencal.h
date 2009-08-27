@@ -36,7 +36,7 @@ typedef struct cal_s * cal;
 	@path mtd device path
 	@return pointer to CAL structure on success, NULL on error.
 */
-cal cal_init(const char *path);
+cal cal_init(const char *path) __attribute__((nonnull,warn_unused_result));
 
 /**
 	Reads CAL block data.
@@ -54,7 +54,7 @@ int cal_read_block(
 	/* Pointer to variable that'll be set to block data length. */
 	uint32_t *len,
 	/* Some mysterious flags. Not used currently. */
-	const uint16_t flags);
+	const uint16_t flags) __attribute__((nonnull,warn_unused_result));
 
 /**
 	Writes CAL block data.
@@ -69,9 +69,9 @@ int cal_write_block(
 	/* Data length */
 	const uint32_t len,
 	/* Some mysterious flags. Not used currently. */
-	const uint16_t flags);
+	const uint16_t flags) __attribute__((nonnull,warn_unused_result));
 
 /** Closes/frees/cleanups after cal_init. */
-void cal_destroy(cal cal);
+void cal_destroy(cal cal) __attribute__((nonnull));
 
 #endif /* OPENCAL_H */
