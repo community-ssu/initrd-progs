@@ -283,21 +283,18 @@ cal cal_init(const char *path) {
 		goto cleanup;
 	}
 
-	/* TODO: make configurable? */
-	const char *lockfile_format = "/tmp/cal.%s.lock";
 	assert(path);
 	char *devicename = rindex(path, '/');
-	/* TODO: replace assert with check and return */
-	assert(devicename && strlen(devicename) > 1);
-	devicename = &devicename[1];
-	/* -2 because of '%s' placeholder. */
-	const size_t lock_len = strlen(lockfile_format) - 2 + strlen(devicename);
-	/* +1 for trailing \0. */
-	char *lock = malloc(lock_len + 1);
-	if (errno == ENOMEM) {
-		goto cleanup;
+	if (!devicename && strlen(devicename) <= 1) {
+		return NULL;
 	}
-	assert(sprintf(lock, lockfile_format, devicename) == (int)lock_len);
+	devicename = &devicename[1];
+	char *lock = NULL;
+	/* TODO: make format configurable? */
+	if (asprintf(&lock, "/tmp/cal.%s.lock", devicename)  == -1) {
+		perror(NULL);
+		return NULL;
+	}
 	const int lock_fd = open(lock, O_WRONLY|O_CREAT|O_EXCL, 0666);
 	if (lock_fd == -1) {
 		fprintf(stderr, "Could not aquire lock file %s: ", lock);
