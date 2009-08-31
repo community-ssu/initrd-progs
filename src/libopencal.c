@@ -288,10 +288,10 @@ cal cal_init(const char *path) {
 	if (!devicename && strlen(devicename) <= 1) {
 		return NULL;
 	}
-	devicename = &devicename[1];
 	char *lock = NULL;
 	/* TODO: make format configurable? */
-	if (asprintf(&lock, "/tmp/cal.%s.lock", devicename)  == -1) {
+	/* ++ to skip leading slash */
+	if (asprintf(&lock, "/tmp/cal.%s.lock", ++devicename)  == -1) {
 		perror(NULL);
 		return NULL;
 	}
