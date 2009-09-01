@@ -189,7 +189,7 @@ static int __attribute__((nonnull(1),warn_unused_result))
 		}
 		if (reg_count <= 0) {
 			fputs("No regions\n", stderr);
-			return 0;
+			return -1;
 		}
 		struct otp_info info[reg_count];
 		if (ioctl(c->mtd_fd, OTPGETREGIONINFO, &info)	< 0) {
@@ -275,16 +275,10 @@ static int __attribute__((nonnull(1),warn_unused_result))
 	return 0;
 }
 
-/** See cal_init in opencal.h for documentation. */
-cal cal_init(const char *path) {
-	cal c = malloc(sizeof(struct cal_s));
-	if (errno == ENOMEM) {
-		perror("Could not allocate memory for CAL structure");
-		goto cleanup;
-	}
-
-	assert(path);
-	char *devicename = rindex(path, '/');
+static char * __attribute__((nonnull,warn_unused_result))
+		acquire_lock(const char *device_path) {
+	assert(device_path);
+	char *devicename = rindex(device_path, '/');
 	if (!devicename && strlen(devicename) <= 1) {
 		return NULL;
 	}
@@ -300,11 +294,25 @@ cal cal_init(const char *path) {
 		fprintf(stderr, "Could not aquire lock file %s: ", lock);
 		perror(NULL);
 		free(lock);
+		return NULL;
+	}
+	if (close(lock_fd)) {
+		fprintf(stderr, "Could not close lock file %s: ", lock);
+		perror(NULL);
+		free(lock);
+		return NULL;
+	}
+	return lock;
+}
+
+/** See cal_init in opencal.h for documentation. */
+cal cal_init(const char *path) {
+	cal c = malloc(sizeof(struct cal_s));
+	if (errno == ENOMEM) {
+		perror("Could not allocate memory for CAL structure");
 		goto cleanup;
 	}
-	close(lock_fd);
-	c->lock_file = lock;
-
+	if ((c->lock_file = acquire_lock(path)) == NULL) goto cleanup;
 	if ((c->mtd_fd = open(path, O_RDWR)) == -1) {
 		fprintf(stderr, "Could not open CAL %s: ", path);
 		perror(NULL);
@@ -601,11 +609,7 @@ void cal_destroy(cal c) {
 	assert(c);
 	free_blocks(c->main_block_list);
 	free_blocks(c->user_block_list);
-	if (c->mtd_fd) {
-		if (close(c->mtd_fd)) {
-			perror("Could not close CAL file");
-		}
-	}
+	if (c->mtd_fd && close(c->mtd_fd)) perror("Could not close CAL file");
 	if (c->lock_file) {
 		if (unlink(c->lock_file)) {
 			fprintf(stderr, "Could not remove lock file %s!"
