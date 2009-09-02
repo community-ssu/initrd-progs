@@ -15,6 +15,10 @@ check_function_exists(asprintf HAVE_ASPRINTF)
 if(!${HAVE_ASPRINTF})
 	message(FATAL_ERROR "asprintf function is required")
 endif()
+check_function_exists(pread HAVE_PREAD)
+if(!${HAVE_PREAD})
+	message(FATAL_ERROR "pread function is required")
+endif()
 
 # config.h
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"

@@ -200,19 +200,13 @@ static int __attribute__((nonnull(1),warn_unused_result))
 
 	}
 	struct conf_block *prev = NULL;
-	for (off_t offset = 0; (size_t)offset < size;) {
+	for (off_t offs = 0; (size_t)offs < size;) {
 		struct conf_block *block = malloc(sizeof(struct conf_block));
 		if (errno == ENOMEM) {
 			perror("malloc failed");
 			return -1;
 		}
-		if (lseek(c->mtd_fd, offset, SEEK_SET) != offset) {
-			fprintf(stderr,  "Could not seek to %u: ", (uint32_t)offset);
-			perror(NULL);
-			free(block);
-			return -1;
-		}
-		const ssize_t ret = read(c->mtd_fd, &block->hdr, CAL_HEADER_LEN);
+		const ssize_t ret = pread(c->mtd_fd, &block->hdr, CAL_HEADER_LEN, offs);
 		if (ret == -1 || (size_t)ret != CAL_HEADER_LEN) {
 			perror("CAL read error");
 			free(block);
@@ -221,7 +215,7 @@ static int __attribute__((nonnull(1),warn_unused_result))
 		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4) != 0) {
 			/* Block should be empty. */
 			free(block);
-			if (offset % c->mtd_info.erasesize == 0) {
+			if (offs % c->mtd_info.erasesize == 0) {
 				/*
 					If first conf block in eraseblock is empty, we assume whole
 					eraseblock to be empty.
@@ -229,15 +223,15 @@ static int __attribute__((nonnull(1),warn_unused_result))
 					TODO: is the same true if we encounter _any_ empty 2kb block?
 					It should work because writes are performed sequentally.
 				*/
-				offset = align_to_next_block(++offset, c->mtd_info.erasesize);
+				offs = align_to_next_block(++offs, c->mtd_info.erasesize);
 			} else {
 				/* Align to writesize boundary after empty block */
-				offset = align_to_next_block(++offset, c->mtd_info.writesize);
+				offs = align_to_next_block(++offs, c->mtd_info.writesize);
 			}
 		} else {
 			if (block->hdr.hdr_version != CAL_HEADER_VERSION) {
 				fprintf(stderr, "Unknown CAL block version %u at offset %u\n",
-					block->hdr.hdr_version, (uint32_t)offset);
+					block->hdr.hdr_version, (uint32_t)offs);
 				free(block);
 				return -1;
 			}
@@ -251,7 +245,7 @@ static int __attribute__((nonnull(1),warn_unused_result))
 				return -1;
 			} */
 
-			block->addr = offset;
+			block->addr = offs;
 			if (prev) {
 				prev->next = block;
 			} else {
@@ -263,12 +257,12 @@ static int __attribute__((nonnull(1),warn_unused_result))
 					We align reads to word boundary if block has
 					CAL_BLOCK_FLAG_VARIABLE_LENGTH flag set.
 				*/
-				offset = align_to_next_block(
-					offset + CAL_HEADER_LEN + block->hdr.len,
+				offs = align_to_next_block(
+					offs + CAL_HEADER_LEN + block->hdr.len,
 					/* TODO: is it correct? */
 					sizeof(void *));
 			} else {
-				offset = align_to_next_block(++offset, c->mtd_info.writesize);
+				offs = align_to_next_block(++offs, c->mtd_info.writesize);
 			}
 		}
 	}
@@ -402,16 +396,13 @@ static int __attribute__((nonnull,warn_unused_result))
 			perror("ioctl(OTPSELECT)");
 			return -1;
 		}
-		if (lseek(c->mtd_fd, block->addr + CAL_HEADER_LEN, SEEK_SET) == -1) {
-			perror("lseek");
-			return -1;
-		}
 		block->data = malloc(block->hdr.len);
 		if (errno == ENOMEM) {
 			perror("malloc");
 			return -1;
 		}
-		const ssize_t ret = read(c->mtd_fd, block->data, block->hdr.len);
+		const off_t ofset = block->addr + CAL_HEADER_LEN;
+		const ssize_t ret = pread(c->mtd_fd, block->data, block->hdr.len, ofset);
 		if (ret == -1 || (size_t)ret != block->hdr.len) {
 			perror("read error");
 			free(block->data);
@@ -550,15 +541,8 @@ int cal_write_block(
 		for (uint32_t i = CAL_HEADER_LEN + len; i < sizeof(buf); ++i) {
 			buf[i] = 0xFF;
 		}
-		const off_t off = lseek(c->mtd_fd, offset, SEEK_SET);
-		if (off == -1 || off != offset) {
-			perror("lseek failed");
-			free(block->data);
-			free(block);
-			return -1;
-		}
 		fprintf(stderr, "Writing new block at offset %u\n", (uint32_t)offset);
-		const ssize_t ret = 1 || write(c->mtd_fd, buf, sizeof(buf));
+		const ssize_t ret = 1 || pwrite(c->mtd_fd, buf, sizeof(buf), offset);
 		if (ret == -1 || (size_t)ret != sizeof(buf)) {
 			perror("write failed");
 			free(block->data);
