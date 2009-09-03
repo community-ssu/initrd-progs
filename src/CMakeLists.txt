@@ -1,6 +1,5 @@
 # Dependencies
 find_package(Popt REQUIRED)
-find_package(ZLIB REQUIRED)
 
 # Checks
 set(CMAKE_REQUIRED_FLAGS "-std=c99 -Wall -Wextra -Werror -pedantic")
@@ -30,8 +29,7 @@ include_directories(
 	"${CMAKE_CURRENT_BINARY_DIR}")
 add_definitions(${CMAKE_REQUIRED_FLAGS} ${CMAKE_REQUIRED_DEFINITIONS})
 
-add_library(opencal SHARED libopencal.c)
-target_link_libraries(opencal ${ZLIB_LIBRARY})
+add_library(opencal SHARED crc32.c libopencal.c)
 add_executable(open-wlan-cal open-wlan-cal.c)
 target_link_libraries(open-wlan-cal ${Popt_LIBRARY} opencal)
 add_executable(open-cal-tool open-cal-tool.c)

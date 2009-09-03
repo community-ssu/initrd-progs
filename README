@@ -5,7 +5,6 @@ Dependencies
 ------------
 CMake >= 2.6 is required to build from sources.
 popt is required at build and runtime for command-line args processing.
-zlib is required at build and runtime for crc calculation.
 
 Compiling
 ---------

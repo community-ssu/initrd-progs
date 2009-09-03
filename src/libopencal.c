@@ -25,7 +25,6 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <zlib.h>
 
 /* Dirty hack to make it build with vanilla kernel headers. */
 #define __u32 uint32_t
@@ -36,6 +35,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "crc32.h"
 #include "opencal.h"
 
 /*
@@ -154,7 +154,7 @@ static inline off_t __attribute__((const))
 static inline uint32_t __attribute__((nonnull,warn_unused_result))
 		conf_block_header_crc(const struct conf_block *block) {
 	const size_t len = CAL_HEADER_LEN - sizeof(block->hdr.hdr_crc);
-	return crc32(0L, (Bytef *)&block->hdr, len);
+	return crc32(0L, &block->hdr, len);
 }
 
 /**
@@ -235,15 +235,14 @@ static int __attribute__((nonnull(1),warn_unused_result))
 				free(block);
 				return -1;
 			}
-			/* TODO: fails for all blocks written by libcal
 			const uint32_t crc = conf_block_header_crc(block);
 			if (crc != block->hdr.hdr_crc) {
 				fprintf(stderr, "Invalid header crc at offset %u."
 					" Expected 0x%x but got 0x%x\n",
-					(uint32_t)offset, crc, block->hdr.hdr_crc);
+					(uint32_t)offs, crc, block->hdr.hdr_crc);
 				free(block);
 				return -1;
-			} */
+			}
 
 			block->addr = offs;
 			if (prev) {
@@ -409,7 +408,6 @@ static int __attribute__((nonnull,warn_unused_result))
 			block->data = NULL;
 			return -1;
 		}
-		/* TODO: not compatible with what libcal does.
 		const uint32_t crc = crc32(0L, block->data, block->hdr.len);
 		if (crc != block->hdr.data_crc) {
 			fprintf(stderr, "Invalid data crc at offset %u."
@@ -419,7 +417,6 @@ static int __attribute__((nonnull,warn_unused_result))
 			block->data = NULL;
 			return -1;
 		}
-		*/
 	}
 	return 0;
 }
@@ -524,9 +521,8 @@ int cal_write_block(
 		block->hdr.flags = 0;
 		memcpy(block->hdr.name, name, strlen(name));
 		block->hdr.len = len;
-		/* TODO: not compatible with libcal
 		block->hdr.data_crc = crc32(0L, data, len);
-		block->hdr.hdr_crc = conf_block_header_crc(block); */
+		block->hdr.hdr_crc = conf_block_header_crc(block);
 		block->addr = offset;
 		block->data = malloc(len);
 		if (errno == ENOMEM) {
