@@ -203,7 +203,7 @@ static int __attribute__((nonnull(1),warn_unused_result))
 	struct conf_block *prev = NULL;
 	for (off_t offs = 0; (size_t)offs < size;) {
 		struct conf_block *block = malloc(sizeof(struct conf_block));
-		if (errno == ENOMEM) {
+		if (!block) {
 			perror("malloc failed");
 			return -1;
 		}
@@ -306,8 +306,8 @@ static char * __attribute__((nonnull,warn_unused_result))
 /** See cal_init in opencal.h for documentation. */
 cal cal_init(const char *path) {
 	cal c = malloc(sizeof(struct cal_s));
-	if (errno == ENOMEM) {
-		perror("Could not allocate memory for CAL structure");
+	if (!c) {
+		perror("malloc failed");
 		goto cleanup;
 	}
 	if ((c->lock_file = acquire_lock(path)) == NULL) goto cleanup;
@@ -402,8 +402,8 @@ static int __attribute__((nonnull,warn_unused_result))
 			return -1;
 		}
 		block->data = malloc(block->hdr.len);
-		if (errno == ENOMEM) {
-			perror("malloc");
+		if (!block->data) {
+			perror("malloc failed");
 			return -1;
 		}
 		const off_t ofset = block->addr + CAL_HEADER_LEN;
@@ -514,8 +514,8 @@ int cal_write_block(
 	if (offset > -1) {
 		/* Found empty space, write to it. */
 		struct conf_block *block = malloc(sizeof(struct conf_block));
-		if (errno == ENOMEM) {
-			perror(NULL);
+		if (!block) {
+			perror("malloc failed");
 			return -1;
 		}
 		memcpy(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4);
@@ -532,8 +532,8 @@ int cal_write_block(
 		block->hdr.hdr_crc = conf_block_header_crc(block);
 		block->addr = offset;
 		block->data = malloc(len);
-		if (errno == ENOMEM) {
-			perror(NULL);
+		if (!block->data) {
+			perror("malloc failed");
 			free(block);
 			return -1;
 		}
