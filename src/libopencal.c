@@ -213,6 +213,7 @@ static int __attribute__((nonnull(1),warn_unused_result))
 			free(block);
 			return -1;
 		}
+		int align_to;
 		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4)) {
 			/* Block should be empty. */
 			free(block);
@@ -224,10 +225,11 @@ static int __attribute__((nonnull(1),warn_unused_result))
 					TODO: is the same true if we encounter _any_ empty 2kb block?
 					It should work because writes are performed sequentally.
 				*/
-				offs = align_to_next_block(++offs, c->mtd_info.erasesize);
+				align_to = c->mtd_info.erasesize;
+				++offs;
 			} else {
-				/* Align to writesize boundary after empty block */
-				offs = align_to_next_block(++offs, c->mtd_info.writesize);
+				align_to = c->mtd_info.writesize;
+				++offs;
 			}
 		} else {
 			if (block->hdr.hdr_version != CAL_HEADER_VERSION) {
@@ -237,34 +239,35 @@ static int __attribute__((nonnull(1),warn_unused_result))
 				return -1;
 			}
 			const uint32_t crc = conf_block_header_crc(block);
-			if (crc != block->hdr.hdr_crc) {
-				fprintf(stderr, "Invalid header crc at offset %u."
-					" Expected 0x%x but got 0x%x\n",
+			if (crc == block->hdr.hdr_crc) {
+				block->addr = offs;
+				if (prev) {
+					prev->next = block;
+				} else {
+					*list = block;
+				}
+				prev = block;
+				if (block->hdr.flags & CAL_BLOCK_FLAG_VARIABLE_LENGTH) {
+					/*
+						We align reads to word boundary if block has
+						CAL_BLOCK_FLAG_VARIABLE_LENGTH flag set.
+					*/
+					align_to = sizeof(void *);
+					offs += CAL_HEADER_LEN + block->hdr.len;
+				} else {
+					align_to = c->mtd_info.writesize;
+					++offs;
+				}
+			} else {
+				fprintf(stderr, "Skipped header with invalid crc at offset %u."
+					" Expected 0x%x but got 0x%x.\n",
 					(uint32_t)offs, crc, block->hdr.hdr_crc);
 				free(block);
-				return -1;
-			}
-
-			block->addr = offs;
-			if (prev) {
-				prev->next = block;
-			} else {
-				*list = block;
-			}
-			prev = block;
-			if (block->hdr.flags & CAL_BLOCK_FLAG_VARIABLE_LENGTH) {
-				/*
-					We align reads to word boundary if block has
-					CAL_BLOCK_FLAG_VARIABLE_LENGTH flag set.
-				*/
-				offs = align_to_next_block(
-					offs + CAL_HEADER_LEN + block->hdr.len,
-					/* TODO: is it correct? */
-					sizeof(void *));
-			} else {
-				offs = align_to_next_block(++offs, c->mtd_info.writesize);
+				align_to = c->mtd_info.writesize;
+				++offs;
 			}
 		}
+		offs = align_to_next_block(offs, align_to);
 	}
 	return 0;
 }
@@ -436,10 +439,10 @@ int cal_read_block(
 	assert(data);
 	assert(len);
 	struct conf_block *block;
-	if ((block = find_block(name, c->main_block_list)) != NULL) {
-		if (read_block_data(c, block, MTD_MODE_NORMAL)) return -1;
-	} else if ((block = find_block(name, c->user_block_list)) != NULL) {
+	if ((block = find_block(name, c->user_block_list)) != NULL) {
 		if (read_block_data(c, block, MTD_MODE_OTP_USER)) return -1;
+	} else if ((block = find_block(name, c->main_block_list)) != NULL) {
+		if (read_block_data(c, block, MTD_MODE_NORMAL)) return -1;
 	} else {
 		fprintf(stderr, "No block %s found\n", name);
 		return -1;
