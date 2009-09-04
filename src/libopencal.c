@@ -484,7 +484,7 @@ int cal_write_block(
 			&& prev->hdr.len == len
 			&& !read_block_data(c, prev, MTD_MODE_NORMAL)
 			&& !memcmp(data, prev->data, len)) {
-		/* Active block already has given data. */
+		/* Active block already has same data. */
 		return 0;
 	}
 
