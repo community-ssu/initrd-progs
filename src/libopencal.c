@@ -107,7 +107,7 @@ struct conf_block_header {
 	uint32_t data_crc;
 	/* CRC32 for header data. */
 	uint32_t hdr_crc;
-};
+} __attribute__((packed));
 
 /** Structure describing CAL block. */
 struct conf_block {
