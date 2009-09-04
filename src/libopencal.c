@@ -288,7 +288,7 @@ static char * __attribute__((nonnull,warn_unused_result))
 	}
 	const int lock_fd = open(lock, O_WRONLY|O_CREAT|O_EXCL, 0666);
 	if (lock_fd == -1) {
-		fprintf(stderr, "Could not aquire lock file %s: ", lock);
+		fprintf(stderr, "Could not acquire lock file %s: ", lock);
 		perror(NULL);
 		free(lock);
 		return NULL;
