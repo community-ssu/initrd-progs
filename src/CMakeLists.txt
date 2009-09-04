@@ -18,6 +18,10 @@ check_function_exists(pread HAVE_PREAD)
 if(!${HAVE_PREAD})
 	message(FATAL_ERROR "pread function is required")
 endif()
+check_include_files(stdbool.h HAVE_STDBOOL_H)
+if(!${HAVE_STDBOOL_H})
+	message(FATAL_ERROR "stdbool.h header not found")
+endif()
 
 # config.h
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"

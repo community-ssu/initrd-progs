@@ -25,6 +25,7 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <stdbool.h>
 
 /* Dirty hack to make it build with vanilla kernel headers. */
 #define __u32 uint32_t
@@ -187,12 +188,12 @@ static int __attribute__((nonnull(1),warn_unused_result))
 			perror("ioctl(OTPGETREGIONCOUNT)");
 			return -1;
 		}
-		if (reg_count <= 0) {
+		if (!reg_count) {
 			fputs("No regions\n", stderr);
 			return -1;
 		}
 		struct otp_info info[reg_count];
-		if (ioctl(c->mtd_fd, OTPGETREGIONINFO, &info)	< 0) {
+		if (ioctl(c->mtd_fd, OTPGETREGIONINFO, &info) < 0) {
 			perror("ioctl(OTPGETREGIONCOUNT)");
 			return -1;
 		}
@@ -212,7 +213,7 @@ static int __attribute__((nonnull(1),warn_unused_result))
 			free(block);
 			return -1;
 		}
-		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4) != 0) {
+		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4)) {
 			/* Block should be empty. */
 			free(block);
 			if (offs % c->mtd_info.erasesize == 0) {
@@ -272,13 +273,14 @@ static char * __attribute__((nonnull,warn_unused_result))
 		acquire_lock(const char *device_path) {
 	assert(device_path);
 	char *devicename = rindex(device_path, '/');
-	if (!devicename && strlen(devicename) <= 1) {
+	if (!devicename || !devicename[0] || !devicename[1]) {
 		return NULL;
 	}
 	char *lock = NULL;
 	/* TODO: make format configurable? */
 	/* ++ to skip leading slash */
-	if (asprintf(&lock, "/tmp/cal.%s.lock", ++devicename)  == -1) {
+	if (asprintf(&lock, "/tmp/cal.%s.lock", ++devicename) == -1) {
+		/* TODO: error mmsg */
 		perror(NULL);
 		return NULL;
 	}
@@ -311,7 +313,7 @@ cal cal_init(const char *path) {
 		perror(NULL);
 		goto cleanup;
 	}
-	if (ioctl(c->mtd_fd, MEMGETINFO, &c->mtd_info) == -1) {
+	if (ioctl(c->mtd_fd, MEMGETINFO, &c->mtd_info) < 0) {
 		perror("ioctl(MEMGETINFO) failed");
 		goto cleanup;
 	}
@@ -346,10 +348,10 @@ static struct conf_block * __attribute__((nonnull(1),warn_unused_result))
 		find_block(const char *name, struct conf_block *block) {
 	struct conf_block *result = NULL;
 	while (block) {
-		if (strncmp(name, block->hdr.name, CAL_BLOCK_NAME_LEN) == 0
+		if (!strncmp(name, block->hdr.name, CAL_BLOCK_NAME_LEN)
 				&& (!result
-				/* Only block with highest version is considered active */
-				|| block->hdr.block_version > result->hdr.block_version)) {
+					/* Only block with highest version is considered active */
+					|| block->hdr.block_version > result->hdr.block_version)) {
 			result = block;
 		}
 		block = block->next;
@@ -362,20 +364,21 @@ static struct conf_block * __attribute__((nonnull(1),warn_unused_result))
 	@name block name to be validated.
 	@return 0 if block name is valid, otherwise -1.
 */
-static int __attribute__((nonnull,warn_unused_result))
+static bool __attribute__((nonnull,warn_unused_result))
 		validate_block_name(const char *name) {
 	if (!name) {
 		fputs("Block name cannot be NULL\n", stderr);
-		return -1;
-	} else if (strlen(name) == 0) {
-		fputs("Empty name is not allowed\n", stderr);
-		return -1;
-	} else if (strlen(name) > CAL_BLOCK_NAME_LEN) {
-		fputs("Too long block name\n", stderr);
-		return -1;
-	} else {
-		return 0;
+		return false;
 	}
+	if (!name[0]) {
+		fputs("Empty name is not allowed\n", stderr);
+		return false;
+	}
+	if (strlen(name) > CAL_BLOCK_NAME_LEN) {
+		fputs("Too long block name\n", stderr);
+		return false;
+	}
+	return true;
 }
 
 /**
@@ -429,7 +432,7 @@ int cal_read_block(
 		uint32_t *len,
 		const uint16_t flags __attribute__((unused))) {
 	assert(c);
-	if (validate_block_name(name)) return -1;
+	if (!validate_block_name(name)) return -1;
 	assert(data);
 	assert(len);
 	struct conf_block *block;
@@ -455,8 +458,9 @@ int cal_write_block(
 		const uint32_t len,
 		const uint16_t flags __attribute__((unused))) {
 	assert(c);
-	if (validate_block_name(name)) return -1;
+	if (!validate_block_name(name)) return -1;
 	assert(data);
+	assert(c->mtd_info.writesize >= CAL_HEADER_LEN);
 	const uint32_t max_data_len = c->mtd_info.writesize - CAL_HEADER_LEN;
 	if (len > max_data_len) {
 		fprintf(stderr, "Can't write data longer than %u bytes\n", max_data_len);
@@ -476,7 +480,7 @@ int cal_write_block(
 	if (prev
 			&& prev->hdr.len == len
 			&& !read_block_data(c, prev, MTD_MODE_NORMAL)
-			&& memcmp(data, prev->data, len) == 0) {
+			&& !memcmp(data, prev->data, len)) {
 		/* Active block already has given data. */
 		return 0;
 	}
