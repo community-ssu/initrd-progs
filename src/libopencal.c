@@ -283,8 +283,7 @@ static char * __attribute__((nonnull,warn_unused_result))
 	/* TODO: make format configurable? */
 	/* ++ to skip leading slash */
 	if (asprintf(&lock, "/tmp/cal.%s.lock", ++devicename) == -1) {
-		/* TODO: error mmsg */
-		perror(NULL);
+		perror("Could not build lock filename");
 		return NULL;
 	}
 	const int lock_fd = open(lock, O_WRONLY|O_CREAT|O_EXCL, 0666);
