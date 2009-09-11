@@ -246,6 +246,10 @@ static int __attribute__((nonnull(1),warn_unused_result))
 				} else {
 					*list = block;
 				}
+				/*
+				printf("block %s version %u at 0x%x\n",
+					block->hdr.name, block->hdr.block_version, (int)block->addr);
+				*/
 				prev = block;
 				if (block->hdr.flags & CAL_BLOCK_FLAG_VARIABLE_LENGTH) {
 					/*
@@ -463,7 +467,8 @@ int cal_write_block(
 	if (!validate_block_name(name)) return -1;
 	assert(data);
 	assert(c->mtd_info.writesize >= CAL_HEADER_LEN);
-	const uint32_t max_data_len = c->mtd_info.writesize - CAL_HEADER_LEN;
+	char buf[c->mtd_info.writesize];
+	const uint32_t max_data_len = sizeof(buf) - CAL_HEADER_LEN;
 	if (len > max_data_len) {
 		fprintf(stderr, "Can't write data longer than %u bytes\n", max_data_len);
 		return -1;
@@ -485,111 +490,77 @@ int cal_write_block(
 			&& !memcmp(data, prev->data, len)) {
 		/* Active block already has same data. */
 		return 0;
+	} else if (!prev) {
+		fputs("No previous block, don't know where to write", stderr);
+		return -1;
 	}
-	char buf[c->mtd_info.writesize],empty[c->mtd_info.writesize];
-	memset(empty, 0xFF, sizeof(empty));
+	const off_t offset = align_to_next_block(prev->addr + 1, sizeof(buf));
+	const off_t end = offset + sizeof(buf);
+	if ((prev->next == NULL && end > (off_t)c->mtd_info.size)
+			|| (prev->next != NULL && end > (off_t)prev->next->addr)) {
+		fputs("Block doesn't fit", stderr);
+		return -1;
+	}
 
 	const int select_mode = MTD_MODE_NORMAL;
 	if (ioctl(c->mtd_fd, OTPSELECT, &select_mode)) {
 		perror("ioctl(OTPSELECT)");
 		return -1;
 	}
-
-	struct conf_block *anchor = c->main_block_list;
-	off_t offset = -1;
-	if (!anchor || anchor->addr >= c->mtd_info.writesize) {
-		/* Empty list or empty space before first block */
-		offset = 0;
-	} else {
-		/* Search for empty space. */
-		/* TODO: handle bad blocks */
-		while (anchor) {
-			uint32_t start = align_to_next_block(
-				anchor->addr + CAL_HEADER_LEN + anchor->hdr.len,
-				c->mtd_info.writesize);
-			const uint32_t end = anchor->next
-				? anchor->next->addr
-				: c->mtd_info.size;
-			while (start < end && end - start >= c->mtd_info.writesize) {
-				const ssize_t ret = pread(c->mtd_fd, buf, sizeof(buf), start);
-				if (ret == -1 || (size_t)ret != sizeof(buf)) {
-					perror("read error");
-					return -1;
-				}
-				if (memcmp(buf, empty, sizeof(buf))) {
-					fprintf(stderr, "Nonclean empty space at 0x%x\n", (int)start);
-					start += sizeof(buf);
-				} else {
-					offset = start;
-					break;
-				}
-			}
-			anchor = anchor->next;
-		}
-	}
-	if (offset > -1) {
-		/* Found empty space, write to it. */
-		struct conf_block *block = malloc(sizeof(struct conf_block));
-		if (!block) {
-			perror("malloc failed");
-			return -1;
-		}
-		memcpy(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4);
-		block->hdr.hdr_version = CAL_HEADER_VERSION;
-		/*
-			If active block with same name found, set new block
-			version to old block version + 1. Otherwise, set version to 0.
-		*/
-		block->hdr.block_version = prev ? prev->hdr.block_version + 1 : 0;
-		block->hdr.flags = 0;
-		memcpy(block->hdr.name, name, strlen(name));
-		block->hdr.len = len;
-		block->hdr.data_crc = crc32(0L, data, len);
-		block->hdr.hdr_crc = conf_block_header_crc(block);
-		block->addr = offset;
-		block->data = malloc(len);
-		if (!block->data) {
-			perror("malloc failed");
-			free(block);
-			return -1;
-		}
-		memcpy(block->data, data, len);
-		memcpy(buf, &block->hdr, CAL_HEADER_LEN);
-		memcpy(&buf[CAL_HEADER_LEN], data, len);
-		for (uint32_t i = CAL_HEADER_LEN + len; i < sizeof(buf); ++i) {
-			buf[i] = 0xFF;
-		}
-		fprintf(stderr, "Writing new block at offset 0x%x\n", (int)offset);
-		const ssize_t ret = pwrite(c->mtd_fd, buf, sizeof(buf), offset);
-		if (ret == -1 || (size_t)ret != sizeof(buf)) {
-			perror("write failed");
-			free(block->data);
-			free(block);
-			return -1;
-		}
-		if (!anchor || (uint32_t)offset < anchor->addr) {
-			block->next = anchor;
-			c->main_block_list = block;
-		} else {
-			block->next = anchor->next;
-			anchor->next = block;
-		}
-	} else {
-		/*
-			TODO: implement this.
-			4. If not found, search for eraseblock with largest free + filled
-			with inactive blocks block count.
-			5. If not found, return error (no space left).
-			6. Read all active blocks data from found eraseblock into mem.
-			7. Erase that eraseblock.
-			8. Iterate over blocks from erased area; free() inactive,
-			write active and fix their stored on-disk addr.
-			9. Write given data to following block after last written,
-			add it to in-mem block list.
-		*/
-		fputs("erasing not implemented yet\n", stderr);
+	/* Found empty space, write to it. */
+	struct conf_block *block = malloc(sizeof(struct conf_block));
+	if (!block) {
+		perror("malloc failed");
 		return -1;
 	}
+	memcpy(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4);
+	block->hdr.hdr_version = CAL_HEADER_VERSION;
+	/*
+		If active block with same name found, set new block
+		version to old block version + 1. Otherwise, set version to 0.
+	*/
+	block->hdr.block_version = prev ? prev->hdr.block_version + 1 : 0;
+	block->hdr.flags = 0;
+	memcpy(block->hdr.name, name, strlen(name));
+	block->hdr.len = len;
+	block->hdr.data_crc = crc32(0L, data, len);
+	block->hdr.hdr_crc = conf_block_header_crc(block);
+	block->addr = offset;
+	block->data = malloc(len);
+	if (!block->data) {
+		perror("malloc failed");
+		free(block);
+		return -1;
+	}
+	memcpy(block->data, data, len);
+	memcpy(buf, &block->hdr, CAL_HEADER_LEN);
+	memcpy(&buf[CAL_HEADER_LEN], data, len);
+	for (uint32_t i = CAL_HEADER_LEN + len; i < sizeof(buf); ++i) {
+		buf[i] = 0xFF;
+	}
+	fprintf(stderr, "Writing new block at offset 0x%x\n", (int)offset);
+	const ssize_t ret = pwrite(c->mtd_fd, buf, sizeof(buf), offset);
+	if (ret == -1 || (size_t)ret != sizeof(buf)) {
+		perror("write failed");
+		free(block->data);
+		free(block);
+		return -1;
+	}
+	block->next = prev->next;
+	prev->next = block;
+
+	/*
+		TODO: implement this.
+		4. If not found, search for eraseblock with largest free + filled
+		with inactive blocks block count.
+		5. If not found, return error (no space left).
+		6. Read all active blocks data from found eraseblock into mem.
+		7. Erase that eraseblock.
+		8. Iterate over blocks from erased area; free() inactive,
+		write active and fix their stored on-disk addr.
+		9. Write given data to following block after last written,
+		add it to in-mem block list.
+	*/
 	return 0;
 }
 
