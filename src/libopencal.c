@@ -259,8 +259,8 @@ static int __attribute__((nonnull(1),warn_unused_result))
 					++offs;
 				}
 			} else {
-				fprintf(stderr, "Skipped header with invalid crc at offset %u."
-					" Expected 0x%x but got 0x%x.\n",
+				fprintf(stderr, "Skipped block with invalid header crc at"
+					" offset %u. Expected 0x%x but got 0x%x.\n",
 					(uint32_t)offs, crc, block->hdr.hdr_crc);
 				free(block);
 				align_to = c->mtd_info.writesize;
