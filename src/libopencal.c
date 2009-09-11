@@ -544,7 +544,7 @@ int cal_write_block(
 			buf[i] = 0xFF;
 		}
 		fprintf(stderr, "Writing new block at offset %u\n", (uint32_t)offset);
-		const ssize_t ret = 1 || pwrite(c->mtd_fd, buf, sizeof(buf), offset);
+		const ssize_t ret = pwrite(c->mtd_fd, buf, sizeof(buf), offset);
 		if (ret == -1 || (size_t)ret != sizeof(buf)) {
 			perror("write failed");
 			free(block->data);
