@@ -233,8 +233,8 @@ static int __attribute__((nonnull(1),warn_unused_result))
 			}
 		} else {
 			if (block->hdr.hdr_version != CAL_HEADER_VERSION) {
-				fprintf(stderr, "Unknown CAL block version %u at offset %u\n",
-					block->hdr.hdr_version, (uint32_t)offs);
+				fprintf(stderr, "Unknown CAL block version %u at offset 0x%x\n",
+					block->hdr.hdr_version, (int)offs);
 				free(block);
 				return -1;
 			}
@@ -260,8 +260,8 @@ static int __attribute__((nonnull(1),warn_unused_result))
 				}
 			} else {
 				fprintf(stderr, "Skipped block with invalid header crc at"
-					" offset %u. Expected 0x%x but got 0x%x.\n",
-					(uint32_t)offs, crc, block->hdr.hdr_crc);
+					" offset 0x%x. Expected 0x%x but got 0x%x.\n",
+					(int)offs, crc, block->hdr.hdr_crc);
 				free(block);
 				align_to = c->mtd_info.writesize;
 				++offs;
@@ -415,7 +415,7 @@ static int __attribute__((nonnull,warn_unused_result))
 		}
 		const uint32_t crc = crc32(0L, block->data, block->hdr.len);
 		if (crc != block->hdr.data_crc) {
-			fprintf(stderr, "Invalid data crc at offset %u."
+			fprintf(stderr, "Invalid data crc at offset 0x%x."
 				" Expected 0x%x but got 0x%x\n",
 				block->addr, crc, block->hdr.data_crc);
 			free(block->data);
@@ -486,6 +486,14 @@ int cal_write_block(
 		/* Active block already has same data. */
 		return 0;
 	}
+	char buf[c->mtd_info.writesize],empty[c->mtd_info.writesize];
+	memset(empty, 0xFF, sizeof(empty));
+
+	const int select_mode = MTD_MODE_NORMAL;
+	if (ioctl(c->mtd_fd, OTPSELECT, &select_mode)) {
+		perror("ioctl(OTPSELECT)");
+		return -1;
+	}
 
 	struct conf_block *anchor = c->main_block_list;
 	off_t offset = -1;
@@ -496,16 +504,25 @@ int cal_write_block(
 		/* Search for empty space. */
 		/* TODO: handle bad blocks */
 		while (anchor) {
-			const uint32_t start = align_to_next_block(
+			uint32_t start = align_to_next_block(
 				anchor->addr + CAL_HEADER_LEN + anchor->hdr.len,
 				c->mtd_info.writesize);
 			const uint32_t end = anchor->next
 				? anchor->next->addr
 				: c->mtd_info.size;
-			assert(start <= end);
-			if (end - start >= c->mtd_info.writesize) {
-				offset = start;
-				break;
+			while (start < end && end - start >= c->mtd_info.writesize) {
+				const ssize_t ret = pread(c->mtd_fd, buf, sizeof(buf), start);
+				if (ret == -1 || (size_t)ret != sizeof(buf)) {
+					perror("read error");
+					return -1;
+				}
+				if (memcmp(buf, empty, sizeof(buf))) {
+					fprintf(stderr, "Nonclean empty space at 0x%x\n", (int)start);
+					start += sizeof(buf);
+				} else {
+					offset = start;
+					break;
+				}
 			}
 			anchor = anchor->next;
 		}
@@ -537,13 +554,12 @@ int cal_write_block(
 			return -1;
 		}
 		memcpy(block->data, data, len);
-		char buf[c->mtd_info.writesize];
 		memcpy(buf, &block->hdr, CAL_HEADER_LEN);
 		memcpy(&buf[CAL_HEADER_LEN], data, len);
 		for (uint32_t i = CAL_HEADER_LEN + len; i < sizeof(buf); ++i) {
 			buf[i] = 0xFF;
 		}
-		fprintf(stderr, "Writing new block at offset %u\n", (uint32_t)offset);
+		fprintf(stderr, "Writing new block at offset 0x%x\n", (int)offset);
 		const ssize_t ret = pwrite(c->mtd_fd, buf, sizeof(buf), offset);
 		if (ret == -1 || (size_t)ret != sizeof(buf)) {
 			perror("write failed");
