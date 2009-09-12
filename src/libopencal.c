@@ -68,18 +68,7 @@
 #define CAL_BLOCK_HEADER_MAGIC "ConF"
 /* The only known CAL header version. */
 #define CAL_HEADER_VERSION 2
-
-/*
-	If block has this flag set then next block isn't writesize-aligned,
-	but is wordsize (32 bits) aligned and follows current block.
-	Empty block or block without this flag set returns alignment back to
-	writesize. I'm not sure whether blocks with this flag are allowed to cross
-	writesize boundary.
-*/
-#define CAL_BLOCK_FLAG_VARIABLE_LENGTH 1 << 0
-
 #define CAL_HEADER_LEN sizeof(struct conf_block_header)
-
 #define CAL_BLOCK_NAME_LEN 16
 
 /** On-disk CAL block header structure. */
@@ -226,10 +215,8 @@ static int __attribute__((nonnull(1),warn_unused_result))
 					It should work because writes are performed sequentally.
 				*/
 				align_to = c->mtd_info.erasesize;
-				++offs;
 			} else {
 				align_to = c->mtd_info.writesize;
-				++offs;
 			}
 		} else {
 			if (block->hdr.hdr_version != CAL_HEADER_VERSION) {
@@ -247,31 +234,21 @@ static int __attribute__((nonnull(1),warn_unused_result))
 					*list = block;
 				}
 				/*
-				printf("block %s version %u at 0x%x\n",
-					block->hdr.name, block->hdr.block_version, (int)block->addr);
+				printf("block %s version %u at 0x%x flags %u\n",
+					block->hdr.name, block->hdr.block_version, (int)block->addr,
+					block->hdr.flags);
 				*/
 				prev = block;
-				if (block->hdr.flags & CAL_BLOCK_FLAG_VARIABLE_LENGTH) {
-					/*
-						We align reads to word boundary if block has
-						CAL_BLOCK_FLAG_VARIABLE_LENGTH flag set.
-					*/
-					align_to = sizeof(void *);
-					offs += CAL_HEADER_LEN + block->hdr.len;
-				} else {
-					align_to = c->mtd_info.writesize;
-					++offs;
-				}
+				align_to = c->mtd_info.writesize;
 			} else {
 				fprintf(stderr, "Skipped block with invalid header crc at"
 					" offset 0x%x. Expected 0x%x but got 0x%x.\n",
 					(int)offs, crc, block->hdr.hdr_crc);
 				free(block);
 				align_to = c->mtd_info.writesize;
-				++offs;
 			}
 		}
-		offs = align_to_next_block(offs, align_to);
+		offs = align_to_next_block(++offs, align_to);
 	}
 	return 0;
 }
@@ -494,6 +471,7 @@ int cal_write_block(
 		fputs("No previous block, don't know where to write", stderr);
 		return -1;
 	}
+	/* New block is written right after previous one by default. */
 	const off_t offset = align_to_next_block(prev->addr + 1, sizeof(buf));
 	const off_t end = offset + sizeof(buf);
 	if ((prev->next == NULL && end > (off_t)c->mtd_info.size)
@@ -520,8 +498,9 @@ int cal_write_block(
 		version to old block version + 1. Otherwise, set version to 0.
 	*/
 	block->hdr.block_version = prev ? prev->hdr.block_version + 1 : 0;
-	block->hdr.flags = 0;
+	block->hdr.flags = prev->hdr.flags;
 	memcpy(block->hdr.name, name, strlen(name));
+	memset(&block->hdr.name[strlen(name)], 0, CAL_BLOCK_NAME_LEN - strlen(name));
 	block->hdr.len = len;
 	block->hdr.data_crc = crc32(0L, data, len);
 	block->hdr.hdr_crc = conf_block_header_crc(block);
@@ -535,9 +514,7 @@ int cal_write_block(
 	memcpy(block->data, data, len);
 	memcpy(buf, &block->hdr, CAL_HEADER_LEN);
 	memcpy(&buf[CAL_HEADER_LEN], data, len);
-	for (uint32_t i = CAL_HEADER_LEN + len; i < sizeof(buf); ++i) {
-		buf[i] = 0xFF;
-	}
+	memset(&buf[CAL_HEADER_LEN + len], 0xFF, sizeof(buf) - CAL_HEADER_LEN + len);
 	fprintf(stderr, "Writing new block at offset 0x%x\n", (int)offset);
 	const ssize_t ret = pwrite(c->mtd_fd, buf, sizeof(buf), offset);
 	if (ret == -1 || (size_t)ret != sizeof(buf)) {
