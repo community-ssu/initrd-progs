@@ -41,5 +41,8 @@ target_link_libraries(open-cal-tool ${Popt_LIBRARY} opencal)
 
 # Installation
 install(TARGETS
+	opencal
+	LIBRARY DESTINATION lib)
+install(TARGETS
 	open-cal-tool open-wlan-cal
 	RUNTIME DESTINATION sbin)
