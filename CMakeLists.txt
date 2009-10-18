@@ -6,7 +6,7 @@ set(fb_text2screen_VERSION 0.2-git)
 # Dependencies
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
 find_package(Popt REQUIRED)
-set(LINUX_SRC_DIR "/usr/src/linux" CACHE FILEPATH "Path to Linux kernel sources")
+set(LINUX_SRC_DIR "/usr/src/linux" CACHE PATH "Path to Linux kernel sources")
 if(NOT IS_DIRECTORY "${LINUX_SRC_DIR}")
 	message(FATAL_ERROR "No Linux sources found at ${LINUX_SRC_DIR}. Set LINUX_SRC_DIR variable to directory with Linux sources")
 endif()
