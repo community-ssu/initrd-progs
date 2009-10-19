@@ -362,14 +362,8 @@ int main(const int argc, const char **argv) {
 	poptContext ctx = poptGetContext(NULL, argc, argv, popts, POPT_CONTEXT_NO_EXEC);
 	poptSetOtherOptionHelp(ctx, "[OPTION...] ACTION [DEVICE]");
 	int rc = poptGetNextOpt(ctx);
-	int ret;
-	if (rc != -1) {
-		/* Invalid option */
-		fprintf(stderr, "%s: %s\n",
-			poptBadOption(ctx, POPT_BADOPTION_NOALIAS),
-			poptStrerror(rc));
-		ret = EXIT_FAILURE;
-	} else {
+	int ret = EXIT_FAILURE;
+	if (rc == -1) {
 		struct fb fb = {"/dev/fb0", 0, 0, 0, 0, NULL, 0};
 		/* TODO: fail if more than one non-option arg is given. */
 		if (poptPeekArg(ctx) != NULL) {
@@ -379,11 +373,9 @@ int main(const int argc, const char **argv) {
 		if (action_sum > 1) {
 			/* More than one action at a time */
 			fputs("Only one action can be given\n", stderr);
-			ret = EXIT_FAILURE;
 		} else if (action_sum == 0) {
 			/* No action given */
 			poptPrintHelp(ctx, stdout, 0);
-			ret = EXIT_FAILURE;
 		} else if (version) {
 			printf("fb_text2screen %s\n\n", VERSION);
 			puts("Copyright (C) 2009 Marat Radchenko <marat@slonopotamus.org>\n"
@@ -408,6 +400,11 @@ int main(const int argc, const char **argv) {
 			}
 			fb_destroy(&fb);
 		}
+	} else {
+		/* Invalid option */
+		fprintf(stderr, "%s: %s\n",
+			poptBadOption(ctx, POPT_BADOPTION_NOALIAS),
+			poptStrerror(rc));
 	}
 	poptFreeContext(ctx);
 	return ret;
