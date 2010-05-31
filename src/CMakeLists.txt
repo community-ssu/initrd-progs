@@ -9,22 +9,22 @@ include(CheckIncludeFile)
 include(CheckFunctionExists)
 
 check_include_file(mtd/mtd-user.h HAVE_MTD_USER_H)
-if(!${HAVE_MTD_USER_H})
+if(NOT HAVE_MTD_USER_H)
 	message(FATAL_ERROR "<mtd/mtd-user.h> can't be included")
 endif()
 
 check_include_file(stdbool.h HAVE_STDBOOL_H)
-if(!${HAVE_STDBOOL_H})
+if(NOT HAVE_STDBOOL_H)
 	message(FATAL_ERROR "stdbool.h header not found")
 endif()
 
 check_function_exists(asprintf HAVE_ASPRINTF)
-if(!${HAVE_ASPRINTF})
+if(NOT HAVE_ASPRINTF)
 	message(FATAL_ERROR "asprintf function is required")
 endif()
 
 check_function_exists(pread HAVE_PREAD)
-if(!${HAVE_PREAD})
+if(NOT HAVE_PREAD)
 	message(FATAL_ERROR "pread function is required")
 endif()
 
