@@ -17,61 +17,64 @@
 	along with fb_text2screen.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <assert.h>
+#include "config.h"
+
 #include <popt.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <linux/fb.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <string.h>
-#include <strings.h>
-#include <asm-arm/arch-omap/omapfb.h>
-#include <limits.h>
-#include "config.h"
+
+#ifdef HAVE_LINUX_OMAPFB_H
+  #include <linux/omapfb.h>
+#else
+  #include <asm-arm/arch-omap/omapfb.h>
+#endif
 
 struct fb {
 	const char *device; /* path to framebuffer device */
 	int fd; /* framebuffer file descriptor */
 	int width; /* screen width (in px) */
 	int height; /* screen height (in px) */
-	unsigned int depth; /* screen depth in bytes per pixel */
+	uint32_t depth; /* screen depth in bytes per pixel */
 	void *mem; /* mmaped video memory */
 	size_t size; /* mmaped region size */
 };
 
 /* Converts 24-bit rgb color to 16-bit rgb */
 static inline uint16_t rgb_888_to_565(const uint32_t rgb888) {
-	return
+	return (uint16_t)(
 		(((rgb888 & 0xff0000) >> 8) & 0xf800) |
 		(((rgb888 & 0x00ff00) >> 5) & 0x07e0) |
-		(((rgb888 & 0x0000ff) >> 3) & 0x001f);
+		(((rgb888 & 0x0000ff) >> 3) & 0x001f));
 }
 
 /*
  * Fills rectangular area with given color.
  * Expects coordinates and sizes to be validated and normalized.
  */
-static void fill(uint8_t *out, const struct fb *fb, const uint32_t color,
+static void fill(void *out, const struct fb *fb, const uint32_t color,
 		const int width, const int height) {
 	const uint16_t color16 = rgb_888_to_565(color);
 	for (int j = 0; j < height; j++) {
-		uint8_t *row_out = out;
+		void *row_out = out;
 		for (int i = 0; i < width; i++) {
 			if (fb->depth == 2) {
 				*(uint16_t *)row_out = color16;
 			} else if (fb->depth == 4) {
 				*(uint32_t *)row_out = color;
 			} else {
-				assert(0);
+			  fprintf(stderr, "Cannot handle bit depth of %u\n", fb->depth);
+				abort();
 			}
-			row_out += fb->depth;
+			row_out = (char *)row_out + fb->depth;
 		}
-		out += fb->depth * fb->width;
+		out = (char *)out + fb->depth * fb->width;
 	}
 }
 
@@ -150,22 +153,22 @@ static int fb_write_text(
 	}
 
 	const unsigned int first_line_len = len > max_chars_per_row ? max_chars_per_row : len;
-	if (halign == NULL || strcasecmp(halign, "left") == 0) {
+	if (halign == NULL || strcmp(halign, "left") == 0) {
 		/* noop */
-	} else if (strcasecmp(halign, "right") == 0) {
+	} else if (strcmp(halign, "right") == 0) {
 		x = fb->width - first_line_len * letter_size;
-	} else if (strcasecmp(halign, "center") == 0) {
+	} else if (strcmp(halign, "center") == 0) {
 		x = (fb->width - first_line_len * letter_size) / 2;
 	} else {
 		fputs("Invalid horizontal alignment\n", stderr);
 		return EXIT_FAILURE;
 	}
 	const unsigned int rows_in_text = (len + max_chars_per_row - 1) / max_chars_per_row;
-	if (valign == NULL || strcasecmp(valign, "top") == 0) {
+	if (valign == NULL || strcmp(valign, "top") == 0) {
 		/* noop */
-	} else if (strcasecmp(valign, "center") == 0) {
+	} else if (strcmp(valign, "center") == 0) {
 		y = (fb->height - row_height * rows_in_text) / 2;
-	} else if (strcasecmp(valign, "bottom") == 0) {
+	} else if (strcmp(valign, "bottom") == 0) {
 		y = fb->height - row_height * rows_in_text;
 	} else {
 		fputs("Invalid vertical alignment\n", stderr);
@@ -310,7 +313,7 @@ static int fb_clear(struct fb *fb, const uint32_t color, int x, int y,
 		fputs("Boundaries out of range\n", stderr);
 		return EXIT_FAILURE;
 	}
-	uint8_t *out = (uint8_t *)fb->mem + fb->depth * (fb->width * y + x);
+	uint8_t *out = (uint8_t *)fb->mem + (ptrdiff_t)fb->depth * (fb->width * y + x);
 	fill(out, fb, color, width, height);
 	return EXIT_SUCCESS;
 }
@@ -326,8 +329,8 @@ int main(const int argc, const char **argv) {
 		POPT_TABLEEND
 	};
 
-	char *text_color = "0x00FF00";
-	char *bg_color = "0xFFFFFF";
+	const char *text_color = "0x00FF00";
+	const char *bg_color = "0xFFFFFF";
 	int scale = 1;
 	int x = 0;
 	int y = 0;
@@ -389,11 +392,11 @@ int main(const int argc, const char **argv) {
 			if (ret == EXIT_SUCCESS) {
 				if (clear) {
 					/* Clear mode */
-					const uint32_t color32 = strtol(bg_color, NULL, 16);
+					const uint32_t color32 = strtoul(bg_color, NULL, 16);
 					ret = fb_clear(&fb, color32, x, y, width, height);
 				} else {
 					/* Text mode */
-					const uint32_t color32 = strtol(text_color, NULL, 16);
+					const uint32_t color32 = strtoul(text_color, NULL, 16);
 					ret = fb_write_text(&fb, text, scale, color32, x, y, halign, valign);
 				}
 				fb_flush(&fb);

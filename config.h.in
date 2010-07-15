@@ -1,1 +1,2 @@
 #define VERSION "${fb_text2screen_VERSION}"
+#cmakedefine HAVE_LINUX_OMAPFB_H
