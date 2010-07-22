@@ -28,8 +28,12 @@
 #include <stdbool.h>
 
 /* Dirty hack to make it build with vanilla kernel headers. */
-#define __u32 uint32_t
-#define __u8 uint8_t
+#ifndef __u32
+    #define __u32 uint32_t
+#endif
+#ifndef __u8
+    #define __u8 uint8_t
+#endif
 
 #include <mtd/mtd-user.h>
 #include <strings.h>
@@ -101,7 +105,7 @@ struct conf_block_header {
 /** Structure describing CAL block. */
 struct conf_block {
 	/* Header on-disk offset */
-	uint32_t addr;
+	off_t addr;
 	/* Block header. */
 	struct conf_block_header hdr;
 	/* Block data. */
@@ -132,8 +136,8 @@ struct cal_s {
 	@return block-aligned offset
 */
 static inline off_t __attribute__((const))
-		align_to_next_block(const off_t offset, const int bs) {
-	return (offset + bs - 1) & ~(bs - 1);
+		align_to_next_block(const off_t offset, const size_t bs) {
+	return (offset + (off_t)bs - 1) & ~((off_t)bs - 1);
 }
 
 /*
@@ -202,11 +206,11 @@ static int __attribute__((nonnull(1),warn_unused_result))
 			free(block);
 			return -1;
 		}
-		int align_to;
+		size_t align_to;
 		if (memcmp(&block->hdr.magic, CAL_BLOCK_HEADER_MAGIC, 4)) {
 			/* Block should be empty. */
 			free(block);
-			if (offs % c->mtd_info.erasesize == 0) {
+			if (offs % (int)c->mtd_info.erasesize == 0) {
 				/*
 					If first conf block in eraseblock is empty, we assume whole
 					eraseblock to be empty.
@@ -312,13 +316,11 @@ cal cal_init(const char *path) {
 		goto cleanup;
 	}
 
-	/* TODO: this if (0) is kinda weird */
-	if (0) {
+  return c;
+
 cleanup:
-		cal_destroy(c);
-		return NULL;
-	}
-	return c;
+	cal_destroy(c);
+	return NULL;
 }
 
 /*
@@ -386,8 +388,8 @@ static int __attribute__((nonnull,warn_unused_result))
 			perror("malloc failed");
 			return -1;
 		}
-		const off_t ofset = block->addr + CAL_HEADER_LEN;
-		const ssize_t ret = pread(c->mtd_fd, block->data, block->hdr.len, ofset);
+		const off_t offset = block->addr + (int)CAL_HEADER_LEN;
+		const ssize_t ret = pread(c->mtd_fd, block->data, block->hdr.len, offset);
 		if (ret == -1 || (size_t)ret != block->hdr.len) {
 			perror("read error");
 			free(block->data);
@@ -398,7 +400,7 @@ static int __attribute__((nonnull,warn_unused_result))
 		if (crc != block->hdr.data_crc) {
 			fprintf(stderr, "Invalid data crc at offset 0x%x."
 				" Expected 0x%x but got 0x%x\n",
-				block->addr, crc, block->hdr.data_crc);
+				(size_t)block->addr, crc, block->hdr.data_crc);
 			free(block->data);
 			block->data = NULL;
 			return -1;
@@ -445,7 +447,7 @@ int cal_write_block(
 	assert(data);
 	assert(c->mtd_info.writesize >= CAL_HEADER_LEN);
 	char buf[c->mtd_info.writesize];
-	const uint32_t max_data_len = sizeof(buf) - CAL_HEADER_LEN;
+	const size_t max_data_len = sizeof(buf) - CAL_HEADER_LEN;
 	if (len > max_data_len) {
 		fprintf(stderr, "Can't write data longer than %u bytes\n", max_data_len);
 		return -1;
@@ -473,7 +475,7 @@ int cal_write_block(
 	}
 	/* New block is written right after previous one by default. */
 	const off_t offset = align_to_next_block(prev->addr + 1, sizeof(buf));
-	const off_t end = offset + sizeof(buf);
+	const off_t end = offset + (off_t)sizeof(buf);
 	if ((prev->next == NULL && end > (off_t)c->mtd_info.size)
 			|| (prev->next != NULL && end > (off_t)prev->next->addr)) {
 		fputs("Block doesn't fit", stderr);
@@ -497,7 +499,7 @@ int cal_write_block(
 		If active block with same name found, set new block
 		version to old block version + 1. Otherwise, set version to 0.
 	*/
-	block->hdr.block_version = prev ? prev->hdr.block_version + 1 : 0;
+	block->hdr.block_version = (uint8_t)(prev ? prev->hdr.block_version + 1 : 0);
 	block->hdr.flags = prev->hdr.flags;
 	memcpy(block->hdr.name, name, strlen(name));
 	memset(&block->hdr.name[strlen(name)], 0, CAL_BLOCK_NAME_LEN - strlen(name));

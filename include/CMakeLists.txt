@@ -1,1 +1,1 @@
-INSTALL_FILES(include FILES opencal.h)
+install_files(include FILES opencal.h)

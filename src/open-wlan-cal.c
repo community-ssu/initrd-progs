@@ -60,7 +60,7 @@ static void print_end(const ssize_t result) {
 
 /* Country */
 
-static void set_default_country() {
+static void set_default_country(void) {
 	/* Stored in pp_data block */
 	/* TODO: at least UK tablets have 0x10 instead of 0x30 */
 	/* The problem is that i can't figure out which byte they are using */
@@ -77,7 +77,7 @@ static void set_mac(cal c) {
 	if (cal_read_block(c, "wlan-mac", (void **)&data, &len, 0) == 0) {
 		assert(len == (mac_len + 1) * sizeof(uint32_t));
 		for (size_t i = 0; i < mac_len; ++i) {
-			mac[i] = data[i + 1];
+			mac[i] = (char)data[i + 1];
 		}
 		printf(" [%02x:%02x:%02x:%02x:%02x:%02x] ",
 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -120,7 +120,7 @@ static void set_iq_values(cal c) {
 			if (i == 0) {
 				iq[write_offset] = 108;
 			} else {
-				iq[write_offset] = iq[write_offset - item_len] + 5;
+				iq[write_offset] = (char)(iq[write_offset - item_len] + 5);
 			}
 			write_offset++;
 			iq[write_offset++] = '\t';
@@ -158,7 +158,7 @@ static void set_tx_curve(cal c) {
 	}
 }
 
-static void set_tx_limits() {
+static void set_tx_limits(void) {
 	/* TODO: UK tablets have a bit different value. I think there's a conditional switch
 		based on country code, because it doesn't have any additional input. */
 	print_start("Pushing TX limits...");
@@ -181,7 +181,7 @@ static void set_tx_limits() {
 		186));
 }
 
-static void set_rx_values() {
+static void set_rx_values(void) {
 	print_start("Pushing RX tuned values...Using default values ");
 	print_end(write_to("/sys/devices/platform/wlan-omap/cal_rssi",
 		"\1\0"

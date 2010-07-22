@@ -22,10 +22,12 @@
 
 #include <stdint.h>
 
+#pragma GCC visibility push(default)
+
 #define CAL_DEFAULT_PATH "/dev/mtd1"
 
 /* Pointer to CAL internal structure. */
-typedef struct cal_s * cal;
+typedef struct cal_s *cal;
 
 /**
 	Initializes CAL structure.
@@ -73,5 +75,7 @@ int cal_write_block(
 
 /** Closes/frees/cleanups after cal_init. */
 void cal_destroy(cal cal) __attribute__((nonnull));
+
+#pragma GCC visibility pop
 
 #endif /* OPENCAL_H */
