@@ -63,7 +63,6 @@ static void print_end(const ssize_t result) {
 static void set_default_country(void) {
 	/* Stored in pp_data block */
 	/* TODO: at least UK tablets have 0x10 instead of 0x30 */
-	/* The problem is that i can't figure out which byte they are using */
 	print_start("Pushing default country...");
 	print_end(write_to("/sys/devices/platform/wlan-omap/default_country", "0\0\0\0", 4));
 }
