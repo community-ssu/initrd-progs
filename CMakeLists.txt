@@ -5,16 +5,28 @@ project(opendsme C)
 set(opendsme_VERSION 0.3-git)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
-# Dependencies
-find_package(Popt REQUIRED)
-
-# Checks
-
-set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
-    -pedantic -std=c99 -fvisibility=hidden -Wall -Wextra)
+# Compiler flags
 set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
     -D_GNU_SOURCE -D_FORTIFY_SOURCE=2)
-add_definitions(${CMAKE_REQUIRED_DEFINITIONS})
+set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
+    -pedantic -std=c99 -fvisibility=hidden -fmessage-length=0
+    -fdiagnostics-show-option -ffast-math -O -Wabi -Wfatal-errors
+    -Wall -Wextra -Werror -Wformat=2 -Winit-self -Wunknown-pragmas
+    -Wmissing-include-dirs -Wswitch-default -Wswitch-enum -Wunused -ftree-vrp
+    -fstrict-overflow -Wstrict-overflow=5 -Wfloat-equal -Wsync-nand
+    -Wundef -Wshadow -Wno-overlength-strings
+    -Wbad-function-cast -Wcast-qual -Wcast-align
+    -Wwrite-strings -Wconversion -Wlogical-op -Waggregate-return
+    -Wmissing-noreturn -Wmissing-format-attribute -Wnormalized=nfkc -Wpacked
+    -Wpadded -Wredundant-decls -Wnested-externs -Winline
+    -Winvalid-pch -Wvolatile-register-var -Wdisabled-optimization
+    -fstrict-aliasing -Wimport -Wdisabled-optimization -Wpacked-bitfield-compat)
+add_definitions(${CMAKE_REQUIRED_DEFINITIONS}
+    -Wold-style-definition -Wmissing-prototypes
+    -Wmissing-declarations -Wstrict-prototypes)
+
+# Dependencies
+find_package(Popt REQUIRED)
 
 include(CheckIncludeFile)
 include(CheckSymbolExists)
