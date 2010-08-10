@@ -32,6 +32,7 @@ int main(const int argc, const char **argv) {
 	int rd_flags = 0;
 	int get_root_device = 0;
 	int usb_host_mode = 0;
+	char *get_value = NULL;
 	char *root_device = NULL;
 	const struct poptOption options[] = {
 		{"get-rd-mode", 'd', POPT_ARG_NONE, &rd_mode, 0, "Get R&D mode status", NULL},
@@ -40,6 +41,8 @@ int main(const int argc, const char **argv) {
 			"Get root device", NULL},
 		{"set-root-device", 'R', POPT_ARG_STRING, &root_device, 0,
 			"Set root device", NULL},
+		{"get-block", 'G', POPT_ARG_STRING, &get_value, 0,
+			"Print block data to stdout", NULL},
 		{"get-usb-host-mode", 'u', POPT_ARG_NONE, &usb_host_mode, 0,
 			"Get USB host mode flag", NULL},
 		{"version", 0, POPT_ARG_NONE, &version, 0, "Output version", NULL},
@@ -54,7 +57,8 @@ int main(const int argc, const char **argv) {
 	poptSetOtherOptionHelp(ctx, "OPTION");
 	const int rc = poptGetNextOpt(ctx);
 	const int option_sum = version + rd_mode + rd_flags + get_root_device
-		+ usb_host_mode + (root_device == NULL ? 0 : 1);
+		+ usb_host_mode + (root_device == NULL ? 0 : 1)
+		+ (get_value == NULL ? 0 : 1);
 
 	cal c;
 	int ret = EXIT_FAILURE;
@@ -101,6 +105,8 @@ int main(const int argc, const char **argv) {
 		} else if (usb_host_mode && !cal_read_block(c, "usb_host_mode", &data, &len, 0)) {
 			/* TODO: implement this */
 			fputs("not implemented yet\n", stderr);
+		} else if (get_value && !cal_read_block(c, get_value, &data, &len, 0)) {
+			ret = fwrite(data, 1, len, stdout) == len;
 		}
 		cal_destroy(c);
 	}
