@@ -201,7 +201,7 @@ static void set_rx_values(void) {
 		106));
 }
 
-int main(const int argc, const char **argv) {
+int main(int argc, char *argv[]) {
 	int version = 0;
 	const struct poptOption options[] = {
 		{"version", 0, POPT_ARG_NONE, &version, 0, "Output version", NULL},
