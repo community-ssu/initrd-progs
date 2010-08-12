@@ -318,7 +318,7 @@ static int fb_clear(struct fb *fb, const uint32_t color, int x, int y,
 	return EXIT_SUCCESS;
 }
 
-int main(const int argc, const char **argv) {
+int main(int argc, const char *argv[]) {
 	char *text = NULL;
 	int version = 0;
 	int clear = 0;
