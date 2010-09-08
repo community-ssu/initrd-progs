@@ -26,7 +26,7 @@
 #include "opencal.h"
 #include "config.h"
 
-int main(int argc, char *argv[]) {
+int main(const int argc, const char **argv) {
 	int version = 0;
 	int rd_mode = 0;
 	int rd_flags = 0;
