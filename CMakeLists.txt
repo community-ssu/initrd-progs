@@ -18,7 +18,7 @@ set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
     -Wbad-function-cast -Wcast-qual -Wcast-align
     -Wwrite-strings -Wconversion -Wlogical-op -Waggregate-return
     -Wmissing-noreturn -Wmissing-format-attribute -Wnormalized=nfkc -Wpacked
-    -Wpadded -Wredundant-decls -Wnested-externs -Winline
+    -Wpadded -Wno-error=padded -Wredundant-decls -Wnested-externs -Winline
     -Winvalid-pch -Wvolatile-register-var -Wdisabled-optimization
     -fstrict-aliasing -Wimport -Wdisabled-optimization -Wpacked-bitfield-compat)
 add_definitions(${CMAKE_REQUIRED_DEFINITIONS}

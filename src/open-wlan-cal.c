@@ -71,69 +71,82 @@ static void set_mac(cal c) {
 	const size_t mac_len = 6;
 	char mac[mac_len];
 	uint32_t *data;
-	uint32_t len;
+	size_t len;
 	print_start("Pushing MAC address...");
-	if (cal_read_block(c, "wlan-mac", (void **)&data, &len, 0) == 0) {
-		assert(len == (mac_len + 1) * sizeof(uint32_t));
-		for (size_t i = 0; i < mac_len; ++i) {
-			mac[i] = (char)data[i + 1];
-		}
-		printf(" [%02x:%02x:%02x:%02x:%02x:%02x] ",
-			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-		const char *file = "/sys/devices/platform/wlan-omap/cal_mac_address";
-		print_end(write_to(file, mac, mac_len));
+
+	if (cal_read_block(c, "wlan-mac", (void **)&data, &len, 0) != 0) {
+		return;
 	}
+
+	assert(len == (mac_len + 1) * sizeof(uint32_t));
+	for (size_t i = 0; i < mac_len; ++i) {
+		mac[i] = (char)data[i + 1];
+	}
+	printf(" [%02x:%02x:%02x:%02x:%02x:%02x] ",
+		mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	const char *file = "/sys/devices/platform/wlan-omap/cal_mac_address";
+	print_end(write_to(file, mac, mac_len));
 }
 
 static void set_bt_mac(cal c) {
 	char mac[18];
 	char *data;
-	uint32_t len;
+	size_t len;
+
 	print_start("Pushing Bluetooth MAC address...");
-	if (cal_read_block(c, "bt-id", (void **)&data, &len, 0) == 0) {
-		assert(len == 10);
-		assert(sprintf(mac, "%02x:%02x:%02x:%02x:%02x:%02x",
-			data[4], data[5], data[6], data[7], data[8], data[9])
-			== sizeof(mac) - 1);
-		printf(" [%s] ", mac);
-		const char *file = "/sys/devices/platform/hci_h4p/bdaddr";
-		print_end(write_to(file, mac, strlen(mac)));
+
+	if (cal_read_block(c, "bt-id", (void **)&data, &len, 0) != 0) {
+		return;
 	}
+		assert(len == 10);
+
+	assert(sprintf(mac, "%02x:%02x:%02x:%02x:%02x:%02x",
+		data[4], data[5], data[6], data[7], data[8], data[9])
+		== sizeof(mac) - 1);
+	printf(" [%s] ", mac);
+	const char *file = "/sys/devices/platform/hci_h4p/bdaddr";
+	print_end(write_to(file, mac, strlen(mac)));
 }
 
 static void set_iq_values(cal c) {
 	/* 13 (items) * 8 (read_item_len) */
 	char *data;
-	uint32_t len;
+	size_t len;
+
 	print_start("Pushing IQ tuned values...");
-	if (cal_read_block(c, "wlan-iq-align", (void **)&data, &len, 0) == 0) {
-		assert(len == 108);
-		const size_t read_item_len = 8;
-		/* + 2 because two bytes are used for item prefix */
-		const size_t item_len = read_item_len + 2;
-		/* 10 (prefix + 8 bytes of data) * 13 (items) */
-		char iq[130];
-		for (size_t i = 0; i < sizeof(iq) / item_len; ++i) {
-			const size_t read_offset = i * read_item_len + 4;
-			size_t write_offset = item_len * i;
-			if (i == 0) {
-				iq[write_offset] = 108;
-			} else {
-				iq[write_offset] = (char)(iq[write_offset - item_len] + 5);
-			}
-			write_offset++;
-			iq[write_offset++] = '\t';
-			assert(read_offset + read_item_len <= len);
-			memcpy(&iq[write_offset], &data[read_offset], read_item_len);
-		}
-		print_end(write_to("/sys/devices/platform/wlan-omap/cal_iq", iq, sizeof(iq)));
+
+	if (cal_read_block(c, "wlan-iq-align", (void **)&data, &len, 0) != 0) {
+		return;
 	}
+
+	assert(len == 108);
+	const size_t read_item_len = 8;
+	/* + 2 because two bytes are used for item prefix */
+	const size_t item_len = read_item_len + 2;
+	/* 10 (prefix + 8 bytes of data) * 13 (items) */
+	char iq[130];
+
+	for (size_t i = 0; i < sizeof(iq) / item_len; ++i) {
+		const size_t read_offset = i * read_item_len + 4;
+		size_t write_offset = item_len * i;
+		if (i == 0) {
+			iq[write_offset] = 108;
+		} else {
+			iq[write_offset] = (char)(iq[write_offset - item_len] + 5);
+		}
+		write_offset++;
+		iq[write_offset++] = '\t';
+		assert(read_offset + read_item_len <= len);
+		memcpy(&iq[write_offset], &data[read_offset], read_item_len);
+	}
+
+	print_end(write_to("/sys/devices/platform/wlan-omap/cal_iq", iq, sizeof(iq)));
 }
 
 static void set_tx_curve(cal c) {
 	/* 38 * 13 (items) */
 	char *data;
-	uint32_t len;
+	size_t len;
 	print_start("Pushing TX tuned values...");
 	if (cal_read_block(c, "wlan-tx-gen2", (void **)&data, &len, 0) == 0) {
 		assert(len == 508);

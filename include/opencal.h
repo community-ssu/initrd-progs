@@ -38,43 +38,49 @@ typedef struct cal_s *cal;
 	@path mtd device path
 	@return pointer to CAL structure on success, NULL on error.
 */
-cal cal_init(const char *path) __attribute__((nonnull,warn_unused_result));
+cal
+cal_init(const char *path) __attribute__((nonnull,warn_unused_result));
 
 /**
 	Reads CAL block data.
 	@return 0 on success, other value on error (do not rely on -1).
 */
-int cal_read_block(
-	cal cal,
-	/* Block name */
-	const char *name,
-	/*
-		Pointer to void * that'll be set to block data. You must not modify data.
-		Automatically freed when cal_destroy is called.
-	*/
-	void **data,
-	/* Pointer to variable that'll be set to block data length. */
-	uint32_t *len,
-	/* Some mysterious flags. Not used currently. */
-	const uint16_t flags) __attribute__((nonnull,warn_unused_result));
+int
+cal_read_block(
+    cal cal,
+    /* Block name */
+    const char *name,
+    /*
+    	Pointer to void * that'll be set to block data. You must not modify data.
+    	Automatically freed when cal_destroy is called.
+    */
+    void **data,
+    /* Pointer to variable that'll be set to block data length. */
+    size_t *len,
+    /* Some mysterious flags. Not used currently. */
+    const uint16_t flags
+) __attribute__((nonnull,warn_unused_result));
 
 /**
 	Writes CAL block data.
 	@return 0 on success, other value on error (do not rely on -1).
 */
-int cal_write_block(
-	cal cal,
-	/* Block name */
-	const char *name,
-	/* Pointer to block data */
-	const void *data,
-	/* Data length */
-	const uint32_t len,
-	/* Some mysterious flags. Not used currently. */
-	const uint16_t flags) __attribute__((nonnull,warn_unused_result));
+int
+cal_write_block(
+    cal cal,
+    /* Block name */
+    const char *name,
+    /* Pointer to block data */
+    const void *data,
+    /* Data length */
+    const size_t len,
+    /* Some mysterious flags. Not used currently. */
+    const uint16_t flags
+) __attribute__((nonnull,warn_unused_result));
 
 /** Closes/frees/cleanups after cal_init. */
-void cal_destroy(cal cal) __attribute__((nonnull));
+void
+cal_destroy(cal cal) __attribute__((nonnull));
 
 #pragma GCC visibility pop
 

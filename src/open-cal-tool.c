@@ -82,7 +82,7 @@ int main(const int argc, const char **argv) {
 		ret = EXIT_SUCCESS;
 	} else if ((c = cal_init(CAL_DEFAULT_PATH)) != NULL) {
 		void *data;
-		uint32_t len;
+		size_t len;
 		if (rd_mode && !cal_read_block(c, "r&d_mode", &data, &len, 0)) {
 			/*
 				TODO: r&d flags are stored in same block.

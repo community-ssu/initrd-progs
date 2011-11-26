@@ -78,7 +78,7 @@
 /** On-disk CAL block header structure. */
 struct conf_block_header {
 	/* Magic header. Set to CAL_BLOCK_HEADER_MAGIC. */
-	uint32_t magic;
+	char magic[4];
 	/* Header version. Set to CAL_HEADER_VERSION. */
 	uint8_t hdr_version;
 	/*
@@ -398,8 +398,8 @@ static int __attribute__((nonnull,warn_unused_result))
 		}
 		const uint32_t crc = crc32(0L, block->data, block->hdr.len);
 		if (crc != block->hdr.data_crc) {
-			fprintf(stderr, "Invalid data crc at offset 0x%x."
-				" Expected 0x%x but got 0x%x\n",
+			fprintf(stderr, "Invalid data crc at offset 0x%zu."
+				" Expected 0x%u but got 0x%u\n",
 				(size_t)block->addr, crc, block->hdr.data_crc);
 			free(block->data);
 			block->data = NULL;
@@ -414,7 +414,7 @@ int cal_read_block(
 		cal c,
 		const char *name,
 		void **data,
-		uint32_t *len,
+		size_t *len,
 		const uint16_t flags __attribute__((unused))) {
 	assert(c);
 	if (!validate_block_name(name)) return -1;
@@ -440,7 +440,7 @@ int cal_write_block(
 		cal c,
 		const char *name,
 		const void *data,
-		const uint32_t len,
+		const size_t len,
 		const uint16_t flags __attribute__((unused))) {
 	assert(c);
 	if (!validate_block_name(name)) return -1;
@@ -449,7 +449,7 @@ int cal_write_block(
 	char buf[c->mtd_info.writesize];
 	const size_t max_data_len = sizeof(buf) - CAL_HEADER_LEN;
 	if (len > max_data_len) {
-		fprintf(stderr, "Can't write data longer than %u bytes\n", max_data_len);
+		fprintf(stderr, "Can't write data longer than %zd bytes\n", max_data_len);
 		return -1;
 	}
 	/*
@@ -503,7 +503,9 @@ int cal_write_block(
 	block->hdr.flags = prev->hdr.flags;
 	memcpy(block->hdr.name, name, strlen(name));
 	memset(&block->hdr.name[strlen(name)], 0, CAL_BLOCK_NAME_LEN - strlen(name));
-	block->hdr.len = len;
+	
+	assert(len <= UINT32_MAX);
+	block->hdr.len = (uint32_t)len;
 	block->hdr.data_crc = crc32(0L, data, len);
 	block->hdr.hdr_crc = conf_block_header_crc(block);
 	block->addr = offset;
