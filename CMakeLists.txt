@@ -1,7 +1,7 @@
 # Generic info
 cmake_minimum_required(VERSION 2.6)
 project(fb_text2screen C)
-set(fb_text2screen_VERSION 0.2-git)
+set(fb_text2screen_VERSION 0.2)
 
 # Compiler flags
 set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS} -D_FORTIFY_SOURCE=2)
