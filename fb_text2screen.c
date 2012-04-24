@@ -44,7 +44,7 @@ struct fb {
 	uint32_t depth; /* screen depth in bytes per pixel */
 	void *mem; /* mmaped video memory */
 	size_t size; /* mmaped region size */
-	uint32_t line_len; /* buffer line lenght in bytes */
+	uint32_t line_len; /* buffer line length in bytes */
 };
 
 /* Converts 24-bit rgb color to 16-bit rgb */
