@@ -79,5 +79,7 @@ target_link_libraries(text2screen ${Popt_LIBRARY})
 add_executable(cal-tool cal-tool.c)
 target_link_libraries(cal-tool ${Popt_LIBRARY} cal)
 
+add_executable(key_pressed key_pressed.c)
+
 # Installation
-install(TARGETS text2screen cal-tool RUNTIME DESTINATION bin)
+install(TARGETS text2screen cal-tool key_pressed RUNTIME DESTINATION bin)
