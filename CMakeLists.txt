@@ -76,8 +76,8 @@ include_directories("${PROJECT_BINARY_DIR}")
 add_executable(fb_text2screen fb_text2screen.c)
 target_link_libraries(fb_text2screen ${Popt_LIBRARY})
 
-# Installation
-install(TARGETS fb_text2screen RUNTIME DESTINATION bin)
+add_executable(open-cal-tool open-cal-tool.c)
+target_link_libraries(open-cal-tool ${Popt_LIBRARY} opencal)
 
-add_subdirectory(include)
-add_subdirectory(src)
+# Installation
+install(TARGETS fb_text2screen open-cal-tool RUNTIME DESTINATION bin)
