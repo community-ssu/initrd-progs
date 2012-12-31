@@ -1,0 +1,45 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+builddir/Makefile:
+	dh_testdir
+	mkdir -p builddir
+	cd builddir && cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_LD_FLAGS="-Wl,-z,defs" -DCMAKE_CXX_FLAGS="$(CXXFLAGS)" -DCMAKE_SKIP_RPATH=ON -DCMAKE_VERBOSE_MAKEFILE=ON
+
+build: build-stamp
+
+build-stamp:  builddir/Makefile
+	dh_testdir
+	$(MAKE) -C builddir
+	touch $@
+
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp
+	rm -rf builddir
+	dh_clean
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+	$(MAKE) -C builddir DESTDIR=$(CURDIR)/debian/initrd-progs install
+
+binary-indep: install
+
+binary-arch: install
+	dh_testdir
+	dh_testroot
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install

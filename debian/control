@@ -1,0 +1,12 @@
+Source: initrd-progs
+Section: utils
+Priority: optional
+Maintainer: Pali Rohár <pali.rohar@gmail.com>
+Build-Depends: debhelper (>= 5), cmake, libpopt-dev, libcal-dev
+Standards-Version: 3.9.3
+
+Package: initrd-progs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Initfs utilities (FIXME)
+ Initfs utilities (FIXME)
