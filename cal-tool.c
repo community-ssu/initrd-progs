@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include "opencal.h"
+#include <cal.h>
 #include "config.h"
 
 int main(const int argc, const char **argv) {
@@ -80,7 +80,7 @@ int main(const int argc, const char **argv) {
 				"This is free software: you are free to change and redistribute it.\n"
 				"There is NO WARRANTY, to the extent permitted by law.");
 		ret = EXIT_SUCCESS;
-	} else if ((c = cal_init(CAL_DEFAULT_PATH)) != NULL) {
+	} else if (cal_init(&c) == 0) {
 		void *data;
 		size_t len;
 		if (rd_mode && !cal_read_block(c, "r&d_mode", &data, &len, 0)) {
@@ -108,7 +108,7 @@ int main(const int argc, const char **argv) {
 		} else if (get_value && !cal_read_block(c, get_value, &data, &len, 0)) {
 			ret = fwrite(data, 1, len, stdout) == len;
 		}
-		cal_destroy(c);
+		cal_finish(c);
 	}
 	poptFreeContext(ctx);
 	return ret;

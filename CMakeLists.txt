@@ -33,7 +33,7 @@ find_package(Popt REQUIRED)
 include(CheckIncludeFile)
 include(CheckSymbolExists)
 
-check_include_file("linux/omapfb.h" HAVE_LINUX_OMAPFB_H)
+check_include_file("linux/omapfb.h" HAVE_LINUX_OMAPFB_H "-Dsize_t=__u32")
 if(NOT HAVE_LINUX_OMAPFB_H)
   set(LINUX_SRC_DIR "/usr/src/linux" CACHE PATH "Path to Linux kernel sources")
   if(NOT IS_DIRECTORY "${LINUX_SRC_DIR}")
@@ -73,11 +73,11 @@ configure_file("${PROJECT_SOURCE_DIR}/config.h.in" "${PROJECT_BINARY_DIR}/config
 include_directories("${PROJECT_BINARY_DIR}")
 
 # Executables
-add_executable(fb_text2screen fb_text2screen.c)
-target_link_libraries(fb_text2screen ${Popt_LIBRARY})
+add_executable(text2screen text2screen.c)
+target_link_libraries(text2screen ${Popt_LIBRARY})
 
-add_executable(open-cal-tool open-cal-tool.c)
-target_link_libraries(open-cal-tool ${Popt_LIBRARY} opencal)
+add_executable(cal-tool cal-tool.c)
+target_link_libraries(cal-tool ${Popt_LIBRARY} cal)
 
 # Installation
-install(TARGETS fb_text2screen open-cal-tool RUNTIME DESTINATION bin)
+install(TARGETS text2screen cal-tool RUNTIME DESTINATION bin)
