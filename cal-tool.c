@@ -84,16 +84,14 @@ int main(const int argc, const char **argv) {
 		void *data;
 		size_t len;
 		if (rd_mode && !cal_read_block(c, "r&d_mode", &data, &len, 0)) {
-			/*
-				TODO: r&d flags are stored in same block.
-				There might be more that one byte when they're set.
-			*/
-			assert(len == 1);
-			puts(((char *)data)[0] ? "enabled" : "disabled");
+			puts((len >= 1 && ((char *)data)[0]) ? "enabled" : "disabled");
 			ret = EXIT_SUCCESS;
 		} else if (rd_flags && !cal_read_block(c, "r&d_mode", &data, &len, 0)) {
-			/* TODO: implement this */
-			fputs("not implemented yet\n", stderr);
+			char buf[len + 1];
+			memcpy(buf, data, len);
+			buf[len] = '\0';
+			puts(buf);
+			ret = EXIT_SUCCESS;
 		} else if (get_root_device && !cal_read_block(c, "root_device", &data, &len, 0)) {
 			char buf[len + 1];
 			memcpy(buf, data, len);
@@ -103,8 +101,11 @@ int main(const int argc, const char **argv) {
 		} else if (root_device && !cal_write_block(c, "root_device", root_device, strlen(root_device), 0)) {
 			ret = EXIT_SUCCESS;
 		} else if (usb_host_mode && !cal_read_block(c, "usb_host_mode", &data, &len, 0)) {
-			/* TODO: implement this */
-			fputs("not implemented yet\n", stderr);
+			char buf[len + 1];
+			memcpy(buf, data, len);
+			buf[len] = '\0';
+			puts(buf);
+			ret = EXIT_SUCCESS;
 		} else if (get_value && !cal_read_block(c, get_value, &data, &len, 0)) {
 			ret = fwrite(data, 1, len, stdout) == len;
 		}
