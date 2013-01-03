@@ -1,9 +1,7 @@
 # Generic info
 cmake_minimum_required(VERSION 2.6)
 project(initrd-progs C)
-
 set(initrd-progs_VERSION 1.0)
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 # Compiler flags
 set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}

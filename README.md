@@ -1,7 +1,7 @@
 fb_text2screen - opensource tool for simple text drawing on framebuffer devices
 ======================================
 Latest fb_text2screen sources & docs are available
-at <http://github.com/slonopotamus/fb_text2screen
+at <http://github.com/slonopotamus/fb_text2screen>
 
 Dependencies
 ------------

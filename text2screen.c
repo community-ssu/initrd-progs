@@ -44,6 +44,7 @@ struct fb {
 	uint32_t depth; /* screen depth in bytes per pixel */
 	void *mem; /* mmaped video memory */
 	size_t size; /* mmaped region size */
+	uint32_t line_len; /* buffer line length in bytes */
 };
 
 /* Converts 24-bit rgb color to 16-bit rgb */
@@ -74,7 +75,7 @@ static void fill(void *out, const struct fb *fb, const uint32_t color,
 			}
 			row_out = (char *)row_out + fb->depth;
 		}
-		out = (char *)out + fb->depth * fb->width;
+		out = (char *)out + fb->line_len;
 	}
 }
 
@@ -188,7 +189,7 @@ static int fb_write_text(
 
 	uint8_t *screen_out = (uint8_t *)fb->mem;
 	/* Pointer to left top letter corner */
-	uint8_t *letter_out = screen_out + fb->depth * (fb->width * y + x);
+	uint8_t *letter_out = screen_out + fb->line_len * y + fb->depth * x;
 	unsigned int row = 0;
 	/* Iterate over chars in text */
 	for (size_t c = 0; c < len; ++c) {
@@ -207,15 +208,15 @@ static int fb_write_text(
 				pxlx_out += fb->depth * scale;
 			}
 			/* Advance to next pixel row */
-			pxly_out += fb->depth * fb->width * scale;
+			pxly_out += fb->line_len * scale;
 		}
 		/* Advance to next letter in same row */
 		letter_out += fb->depth * letter_size;
-		const int last_letter_in_row = fb->depth
-			* (fb->width * (y + row_height * row + 1) - letter_size);
+		const int last_letter_in_row = fb->line_len * (y + row_height * row) +
+					       fb->depth * (fb->width - letter_size);
 		if (letter_out - screen_out > last_letter_in_row) {
 			++row;
-			letter_out = screen_out + fb->depth * fb->width * (y + row_height * row);
+			letter_out = screen_out + fb->line_len * (y + row_height * row);
 		}
 	}
 	return EXIT_SUCCESS;
@@ -242,6 +243,7 @@ static int fb_init(struct fb *fb) {
 	fb->width = vinfo.xres;
 	fb->height = vinfo.yres;
 	fb->depth = ((vinfo.bits_per_pixel) >> 3);
+	fb->line_len = finfo.line_length;
 	/* move viewport to upper left corner */
 	if (vinfo.xoffset != 0 || vinfo.yoffset != 0) {
 		vinfo.xoffset = 0;
@@ -313,7 +315,8 @@ static int fb_clear(struct fb *fb, const uint32_t color, int x, int y,
 		fputs("Boundaries out of range\n", stderr);
 		return EXIT_FAILURE;
 	}
-	uint8_t *out = (uint8_t *)fb->mem + (ptrdiff_t)fb->depth * (fb->width * y + x);
+	uint8_t *out = (uint8_t *)fb->mem + (ptrdiff_t)(fb->line_len * y + fb->depth * x);
+
 	fill(out, fb, color, width, height);
 	return EXIT_SUCCESS;
 }
@@ -367,7 +370,7 @@ int main(int argc, const char *argv[]) {
 	int rc = poptGetNextOpt(ctx);
 	int ret = EXIT_FAILURE;
 	if (rc == -1) {
-		struct fb fb = {"/dev/fb0", 0, 0, 0, 0, NULL, 0};
+		struct fb fb = {"/dev/fb0", 0, 0, 0, 0, NULL, 0, 0};
 		/* TODO: fail if more than one non-option arg is given. */
 		if (poptPeekArg(ctx) != NULL) {
 			fb.device = poptGetArg(ctx);
