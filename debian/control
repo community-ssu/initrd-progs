@@ -2,7 +2,7 @@ Source: initrd-progs
 Section: utils
 Priority: optional
 Maintainer: Pali Rohár <pali.rohar@gmail.com>
-Build-Depends: debhelper (>= 5), cmake, libpopt-dev, libcal-dev
+Build-Depends: debhelper (>= 5), cmake, libpopt-dev, libcal-dev, kernel-headers
 Standards-Version: 3.9.3
 
 Package: initrd-progs
