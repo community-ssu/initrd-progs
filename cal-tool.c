@@ -83,9 +83,10 @@ int main(const int argc, const char **argv) {
 	} else if (cal_init(&c) == 0) {
 		void *data;
 		unsigned long len;
-		if (rd_mode && !cal_read_block(c, "r&d_mode", &data, &len, CAL_FLAG_USER)) {
-			puts((len >= 1 && ((char *)data)[0]) ? "enabled" : "disabled");
-			ret = EXIT_SUCCESS;
+		if (rd_mode) {
+			ret = cal_read_block(c, "r&d_mode", &data, &len, CAL_FLAG_USER);
+			ret = (ret == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+			puts((ret == 0 && len >= 1 && ((char *)data)[0]) ? "enabled" : "disabled");
 		} else if (rd_flags && !cal_read_block(c, "r&d_mode", &data, &len, CAL_FLAG_USER)) {
 			char buf[len + 1];
 			memcpy(buf, data, len);
