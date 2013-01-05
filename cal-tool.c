@@ -60,7 +60,7 @@ int main(const int argc, const char **argv) {
 		+ usb_host_mode + (root_device == NULL ? 0 : 1)
 		+ (get_value == NULL ? 0 : 1);
 
-	cal c;
+	struct cal * c;
 	int ret = EXIT_FAILURE;
 	if (rc != -1) {
 		/* Invalid option */
@@ -82,7 +82,7 @@ int main(const int argc, const char **argv) {
 		ret = EXIT_SUCCESS;
 	} else if (cal_init(&c) == 0) {
 		void *data;
-		size_t len;
+		unsigned long len;
 		if (rd_mode && !cal_read_block(c, "r&d_mode", &data, &len, 0)) {
 			puts((len >= 1 && ((char *)data)[0]) ? "enabled" : "disabled");
 			ret = EXIT_SUCCESS;

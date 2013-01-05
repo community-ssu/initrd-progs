@@ -8,17 +8,17 @@ set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
     -D_GNU_SOURCE -D_FORTIFY_SOURCE=2)
 set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
     -pedantic -std=c99 -fvisibility=hidden -fmessage-length=0
-    -fdiagnostics-show-option -ffast-math -O -Wabi -Wfatal-errors
+    -fdiagnostics-show-option -ffast-math -O -Wfatal-errors
     -Wall -Wextra -Wformat=2 -Winit-self -Wunknown-pragmas
     -Wmissing-include-dirs -Wswitch-default -Wswitch-enum -Wunused -ftree-vrp
-    -Wfloat-equal -Wsync-nand
+    -Wfloat-equal
     -Wundef -Wshadow -Wno-overlength-strings
     -Wbad-function-cast -Wcast-qual -Wcast-align -Wno-variadic-macros
-    -Wwrite-strings -Wlogical-op -Waggregate-return
+    -Wwrite-strings -Waggregate-return
     -Wmissing-noreturn -Wmissing-format-attribute -Wnormalized=nfkc -Wpacked
     -Wredundant-decls -Wnested-externs -Winline
     -Winvalid-pch -Wvolatile-register-var -Wdisabled-optimization
-    -fstrict-aliasing -Wimport -Wdisabled-optimization -Wpacked-bitfield-compat)
+    -fstrict-aliasing -Wimport -Wdisabled-optimization)
 add_definitions(${CMAKE_REQUIRED_DEFINITIONS}
     -Wold-style-definition -Wmissing-prototypes
     -Wmissing-declarations -Wstrict-prototypes)
@@ -39,14 +39,18 @@ if(NOT HAVE_LINUX_OMAPFB_H)
   endif()
 
   set(CMAKE_REQUIRED_INCLUDES "${LINUX_SRC_DIR}/include")
-  check_include_file("asm-arm/arch-omap/omapfb.h" HAVE_ARCH_OMAP_OMAPFB_H)
-  if(NOT HAVE_ARCH_OMAP_OMAPFB_H)
-      message(FATAL_ERROR "omapfb.h not found")
+  unset(HAVE_LINUX_OMAPFB_H CACHE)
+  check_include_file("linux/omapfb.h" HAVE_LINUX_OMAPFB_H "-Dsize_t=__u32")
+  if(NOT HAVE_LINUX_OMAPFB_H)
+      check_include_file("asm-arm/arch-omap/omapfb.h" HAVE_ARCH_OMAP_OMAPFB_H)
+      if(NOT HAVE_ARCH_OMAP_OMAPFB_H)
+          message(FATAL_ERROR "omapfb.h not found")
+      endif()
   endif()
   include_directories(AFTER SYSTEM ${CMAKE_REQUIRED_INCLUDES})
 endif()
 
-check_include_file(mtd/mtd-user.h HAVE_MTD_USER_H)
+check_include_file(mtd/mtd-user.h HAVE_MTD_USER_H "-D__user=")
 if(NOT HAVE_MTD_USER_H)
     message(FATAL_ERROR "Your system doesn't have mtd/mtd-user.h")
 endif()

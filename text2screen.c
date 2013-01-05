@@ -30,6 +30,10 @@
 #include <sys/ioctl.h>
 #include <string.h>
 
+#ifndef __user
+#define __user
+#endif
+
 #ifdef HAVE_LINUX_OMAPFB_H
   #include <linux/omapfb.h>
 #else
