@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -28,6 +29,7 @@
 int main(int argc, char * argv[]) {
 
 	fd_set rfds;
+	char buf[1024];
 	struct termios termios_save;
 	struct termios termios_p;
 	struct timeval tv;
@@ -46,7 +48,7 @@ int main(int argc, char * argv[]) {
 
 	tcgetattr(0, &termios_save);
 
-	tcgetattr(0, &termios_p);
+	memcpy(&termios_p, &termios_save, sizeof(struct termios));
 	termios_p.c_lflag &= ~ECHO;
 	termios_p.c_lflag &= ~ICANON;
 	tcsetattr(0, 0, &termios_p);
@@ -58,6 +60,10 @@ int main(int argc, char * argv[]) {
 	tv.tv_usec = 0;
 
 	ret = select(1, &rfds, NULL, NULL, &tv);
+
+	if (ret == 1 && FD_ISSET(0, &rfds))
+		read(0, buf, sizeof(buf));
+
 	tcsetattr(0, 0, &termios_save);
 	return ret;
 
