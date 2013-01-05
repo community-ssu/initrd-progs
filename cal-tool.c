@@ -91,13 +91,15 @@ int main(const int argc, const char **argv) {
 			char buf[len + 1];
 			memcpy(buf, data, len);
 			buf[len] = '\0';
-			puts(buf);
+			if (buf[0])
+				puts(buf);
 			ret = EXIT_SUCCESS;
 		} else if (get_root_device && !cal_read_block(c, "root_device", &data, &len, CAL_FLAG_USER)) {
 			char buf[len + 1];
 			memcpy(buf, data, len);
 			buf[len] = '\0';
-			puts(buf);
+			if (buf[0])
+				puts(buf);
 			ret = EXIT_SUCCESS;
 		} else if (root_device && !cal_write_block(c, "root_device", root_device, strlen(root_device), CAL_FLAG_USER)) {
 			ret = EXIT_SUCCESS;
@@ -105,7 +107,8 @@ int main(const int argc, const char **argv) {
 			char buf[len + 1];
 			memcpy(buf, data, len);
 			buf[len] = '\0';
-			puts(buf);
+			if (buf[0])
+				puts(buf);
 			ret = EXIT_SUCCESS;
 		} else if (get_value && !cal_read_block(c, get_value, &data, &len, CAL_FLAG_USER)) {
 			ret = fwrite(data, 1, len, stdout) == len;
