@@ -1,3 +1,32 @@
+initrd-progs
+======================================
+This package initrd-progs contains initfs utilities
+for Maemo 5: text2creen, cal-tool and key_pressed.
+
+text2screen was taken from fb_text2screen project
+and cal-tool from opendsme project.
+
+Dependencies
+------------
+
+Build time only:
+
+  - CMake >= 2.6
+
+Both build and runtime:
+
+ -  libcal (from Maemo 5 SDK)
+ -  popt (tested with 1.16)
+
+You can read fb_text2screen and opendsme README
+files below.
+
+Authors
+-------
+ -  Marat Radchenko <marat@slonopotamus.org>
+ -  Pali Rohár <pali.rohar@gmail.com>
+
+
 fb_text2screen - opensource tool for simple text drawing on framebuffer devices
 ======================================
 Latest fb_text2screen sources & docs are available

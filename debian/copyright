@@ -3,6 +3,7 @@ Upstream-Name: initrd-progs
 
 Files: *
 Copyright: 2009 Marat Radchenko <marat@slonopotamus.org>
+Copyright: 2012-2013 Pali Rohár <pali.rohar@gmail.com>
 License: GPL-3.0+
 
 Files: key_pressed.c debian/*

@@ -1,5 +1,6 @@
 /*
 	Copyright 2009, Marat Radchenko
+	Copyright (C) 2012-2013  Pali Rohár <pali.rohar@gmail.com>
 
 	This file is part of fb_text2screen.
 
