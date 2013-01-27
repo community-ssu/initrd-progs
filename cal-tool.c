@@ -112,7 +112,7 @@ int main(const int argc, const char **argv) {
 			if (buf[0])
 				puts(buf);
 			ret = EXIT_SUCCESS;
-		} else if (get_value && !cal_read_block(c, get_value, &data, &len, CAL_FLAG_USER)) {
+		} else if (get_value && !cal_read_block(c, get_value, &data, &len, 0)) {
 			ret = fwrite(data, 1, len, stdout) == len;
 		}
 		cal_finish(c);
