@@ -390,6 +390,7 @@ int main(int argc, const char *argv[]) {
 		} else if (version) {
 			printf("fb_text2screen %s\n\n", VERSION);
 			puts("Copyright (C) 2009 Marat Radchenko <marat@slonopotamus.org>\n"
+				"Copyright (C) 2012-2013 Pali Rohár <pali.rohar@gmail.com>\n"
 				"License GPLv3+: GNU GPL version 3 or later"
 					" <http://gnu.org/licenses/gpl.html>\n"
 				"This is free software: you are free to change and redistribute it.\n"
