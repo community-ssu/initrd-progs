@@ -135,7 +135,8 @@ static int fb_write_text(
 		struct fb *fb,
 		const char *text,
 		const int scale,
-		const uint32_t color,
+		const uint32_t bg_color,
+		const uint32_t fg_color,
 		int x,
 		int y,
 		const char *halign,
@@ -207,7 +208,9 @@ static int fb_write_text(
 			/* Horizontal letter axis */
 			for (int lx = 0; lx < 8; ++lx) {
 				if (letter >> (ly * 8 + lx) & 1) {
-					fill(pxlx_out, fb, color, scale, scale);
+					fill(pxlx_out, fb, fg_color, scale, scale);
+				} else {
+					fill(pxlx_out, fb, bg_color, scale, scale);
 				}
 				/* Advance to next pixel */
 				pxlx_out += fb->depth * scale;
@@ -399,14 +402,14 @@ int main(int argc, const char *argv[]) {
 		} else {
 			ret = fb_init(&fb);
 			if (ret == EXIT_SUCCESS) {
+				const uint32_t bg_color32 = strtoul(bg_color, NULL, 16);
+				const uint32_t fg_color32 = strtoul(text_color, NULL, 16);
 				if (clear) {
 					/* Clear mode */
-					const uint32_t color32 = strtoul(bg_color, NULL, 16);
-					ret = fb_clear(&fb, color32, x, y, width, height);
+					ret = fb_clear(&fb, bg_color32, x, y, width, height);
 				} else {
 					/* Text mode */
-					const uint32_t color32 = strtoul(text_color, NULL, 16);
-					ret = fb_write_text(&fb, text, scale, color32, x, y, halign, valign);
+					ret = fb_write_text(&fb, text, scale, bg_color32, fg_color32, x, y, halign, valign);
 				}
 				fb_flush(&fb);
 			}
