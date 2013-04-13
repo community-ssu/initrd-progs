@@ -290,7 +290,7 @@ static void fb_flush(struct fb *fb) {
 		update.out_width = fb->width;
 		update.out_height = fb->height;
 		if (ioctl(fb->fd, OMAPFB_UPDATE_WINDOW, &update) < 0) {
-			perror("Could not ioctl(OMAPFB_UPDATE_WINDOW)");
+//			perror("Could not ioctl(OMAPFB_UPDATE_WINDOW)");
 		}
 	}
 }
