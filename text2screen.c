@@ -402,8 +402,18 @@ int main(int argc, const char *argv[]) {
 		} else {
 			ret = fb_init(&fb);
 			if (ret == EXIT_SUCCESS) {
-				const uint32_t bg_color32 = strtoul(bg_color, NULL, 16);
-				const uint32_t fg_color32 = strtoul(text_color, NULL, 16);
+				uint32_t bg_color32 = strtoul(bg_color, NULL, 16);
+				uint32_t fg_color32 = strtoul(text_color, NULL, 16);
+				const char *ptr = bg_color;
+				if (strncmp(bg_color, "0x", 2) == 0) {
+					ptr += 2;
+				}
+				size_t len = strlen(ptr);
+				if (len == 2) {
+					bg_color32 |= 0xFFFF00;
+				} else if (len == 4) {
+					bg_color32 |= 0xFF0000;
+				}
 				if (clear) {
 					/* Clear mode */
 					ret = fb_clear(&fb, bg_color32, x, y, width, height);
