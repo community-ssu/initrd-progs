@@ -23,6 +23,7 @@
 #include <popt.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <linux/fb.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -142,6 +143,7 @@ static int fb_write_text(
 		struct fb *fb,
 		const char *text,
 		const int scale,
+		bool bg_clear,
 		const uint32_t bg_color,
 		const uint32_t fg_color,
 		int x,
@@ -216,7 +218,7 @@ static int fb_write_text(
 			for (int lx = 0; lx < 8; ++lx) {
 				if (letter >> (ly * 8 + lx) & 1) {
 					fill(pxlx_out, fb, fg_color, scale, scale);
-				} else {
+				} else if (bg_clear) {
 					fill(pxlx_out, fb, bg_color, scale, scale);
 				}
 				/* Advance to next pixel */
@@ -348,7 +350,7 @@ int main(int argc, const char *argv[]) {
 	};
 
 	const char *text_color = "0x4E02";
-	const char *bg_color = "0xFFFF";
+	const char *bg_color = "";
 	int scale = 1;
 	int x = 0;
 	int y = 0;
@@ -408,9 +410,10 @@ int main(int argc, const char *argv[]) {
 		} else {
 			ret = fb_init(&fb);
 			if (ret == EXIT_SUCCESS) {
-				uint32_t bg_color32 = strtoul(bg_color, NULL, 16);
+				const char *bg_colorstr = bg_color[0] ? bg_color : "0xFFFF";
+				uint32_t bg_color32 = strtoul(bg_colorstr, NULL, 16);
 				uint32_t fg_color32 = strtoul(text_color, NULL, 16);
-				const char *ptr = bg_color;
+				const char *ptr = bg_colorstr;
 				if (strncmp(ptr, "0x", 2) == 0) {
 					ptr += 2;
 				}
@@ -429,7 +432,7 @@ int main(int argc, const char *argv[]) {
 					ret = fb_clear(&fb, bg_color32, x, y, width, height);
 				} else {
 					/* Text mode */
-					ret = fb_write_text(&fb, text, scale, bg_color32, fg_color32, x, y, halign, valign);
+					ret = fb_write_text(&fb, text, scale, bg_color[0], bg_color32, fg_color32, x, y, halign, valign);
 				}
 				fb_flush(&fb);
 			}
