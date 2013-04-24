@@ -60,6 +60,13 @@ static inline uint16_t rgb_888_to_565(const uint32_t rgb888) {
 		(((rgb888 & 0x0000ff) >> 3) & 0x001f));
 }
 
+/* Converts 16-bit rgb color to 24-bit rgb */
+static inline uint32_t rgb_565_to_888(const uint16_t rgb565) {
+	return (((uint32_t)rgb565 & 0x0000f800) << 8) |
+		(((uint32_t)rgb565 & 0x000007e0) << 5) |
+		(((uint32_t)rgb565 & 0x0000001f) << 3);
+}
+
 /*
  * Fills rectangular area with given color.
  * Expects coordinates and sizes to be validated and normalized.
@@ -340,8 +347,8 @@ int main(int argc, const char *argv[]) {
 		POPT_TABLEEND
 	};
 
-	const char *text_color = "0x00FF00";
-	const char *bg_color = "0xFFFFFF";
+	const char *text_color = "0x4E02";
+	const char *bg_color = "0xFFFF";
 	int scale = 1;
 	int x = 0;
 	int y = 0;
@@ -351,10 +358,9 @@ int main(int argc, const char *argv[]) {
 	char *valign = NULL;
 	const struct poptOption options[] = {
 		{"set-text-color", 'T', POPT_ARG_STRING, &text_color, 0,
-			"Use specified 24bit color for text. Default is 0x00FF00 (green).", "<color>"},
+			"Use specified 24bit or 32bit RGB color for text. Default is 0x4E02 (green).", "<color>"},
 		{"set-bg-color", 'B', POPT_ARG_STRING, &bg_color, 0,
-			"Use specified 24bit color for background. Default is 0xFFFFFF (white).",
-			"<color>"},
+			"Use specified 24bit or 32bit RGB color for background. Default is 0xFFFF (white).", "<color>"},
 		{"set-scale", 's', POPT_ARG_INT, &scale, 0,
 			"Set text size", "{1-10}"},
 		{"set-x", 'x', POPT_ARG_INT, &x, 0, "Text/clear area x-coordinate", "<int>"},
@@ -405,14 +411,18 @@ int main(int argc, const char *argv[]) {
 				uint32_t bg_color32 = strtoul(bg_color, NULL, 16);
 				uint32_t fg_color32 = strtoul(text_color, NULL, 16);
 				const char *ptr = bg_color;
-				if (strncmp(bg_color, "0x", 2) == 0) {
+				if (strncmp(ptr, "0x", 2) == 0) {
 					ptr += 2;
 				}
-				size_t len = strlen(ptr);
-				if (len == 2) {
-					bg_color32 |= 0xFFFF00;
-				} else if (len == 4) {
-					bg_color32 |= 0xFF0000;
+				if (strlen(ptr) == 4) {
+					bg_color32 = rgb_565_to_888(bg_color32);
+				}
+				ptr = text_color;
+				if (strncmp(ptr, "0x", 2) == 0) {
+					ptr += 2;
+				}
+				if (strlen(ptr) == 4) {
+					fg_color32 = rgb_565_to_888(fg_color32);
 				}
 				if (clear) {
 					/* Clear mode */
