@@ -1,3 +1,10 @@
+initrd-progs (1.0-2) unstable; urgency=low
+
+  * Accept colors for text2screen in RGB565 format too
+  * Do not clear background in text mode if bg_color is not specified
+
+ -- Pali Rohár <pali.rohar@gmail.com>  Wed, 24 Apr 2013 21:50:10 +0200
+
 initrd-progs (1.0-1) unstable; urgency=low
 
   * Initial release
