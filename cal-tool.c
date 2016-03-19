@@ -83,8 +83,8 @@ int main(const int argc, const char **argv) {
 				"There is NO WARRANTY, to the extent permitted by law.");
 		ret = EXIT_SUCCESS;
 	} else if (cal_init(&c) == 0) {
-		void *data;
-		unsigned long len;
+		void *data = NULL;
+		unsigned long len = 0;
 		if (rd_mode) {
 			ret = cal_read_block(c, "r&d_mode", &data, &len, CAL_FLAG_USER);
 			ret = (ret == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -115,6 +115,7 @@ int main(const int argc, const char **argv) {
 		} else if (get_value && !cal_read_block(c, get_value, &data, &len, 0)) {
 			ret = fwrite(data, 1, len, stdout) == len;
 		}
+		free(data);
 		cal_finish(c);
 	}
 	poptFreeContext(ctx);
